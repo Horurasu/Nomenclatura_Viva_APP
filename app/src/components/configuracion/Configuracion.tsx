@@ -64,9 +64,9 @@ export function Configuracion() {
 
         <div className="space-y-2 my-4">
           {areas.map((a) => (
-            <div key={a.id} className={`border border-slate-200 rounded-lg p-3 ${a.activa ? "" : "opacity-50"}`}>
+            <div key={a.id} className={`border border-line rounded-lg p-3 ${a.activa ? "" : "opacity-50"}`}>
               <div className="flex items-center justify-between gap-2 flex-wrap">
-                <span className={`font-mono text-xs px-2 py-0.5 rounded bg-slate-100 ${a.activa ? "" : "line-through"}`}>{a.codigo}</span>
+                <span className={`font-mono text-xs px-2 py-0.5 rounded bg-paper ${a.activa ? "" : "line-through"}`}>{a.codigo}</span>
                 <Input
                   value={a.nombre}
                   onChange={(e) => actualizarArea(a.id, { nombre: e.target.value })}
@@ -82,17 +82,17 @@ export function Configuracion() {
                   disabled={!a.activa}
                 />
                 {a.activa && (
-                  <button className="text-xs text-red-600 hover:underline whitespace-nowrap" onClick={() => desactivarArea(a.id)}>
+                  <button className="text-xs text-terracotta-600 hover:underline whitespace-nowrap" onClick={() => desactivarArea(a.id)}>
                     Desactivar
                   </button>
                 )}
               </div>
             </div>
           ))}
-          {areas.length === 0 && <p className="text-sm text-slate-400">Todavía no hay áreas registradas.</p>}
+          {areas.length === 0 && <p className="text-sm text-ink-faint">Todavía no hay áreas registradas.</p>}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-3 border-t border-slate-200">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-3 border-t border-line">
           <Input placeholder="Nombre del área nueva" value={nombreArea} onChange={(e) => setNombreArea(e.target.value)} />
           <Input placeholder="Código (opcional)" value={codigoArea} onChange={(e) => setCodigoArea(e.target.value)} />
           <Input type="email" placeholder="Correo (opcional)" value={correoArea} onChange={(e) => setCorreoArea(e.target.value)} />
@@ -112,9 +112,9 @@ export function Configuracion() {
 
         <div className="space-y-2 my-4">
           {categorias.map((c) => (
-            <div key={c.id} className={`border border-slate-200 rounded-lg p-3 space-y-2 ${c.activa ? "" : "opacity-50"}`}>
+            <div key={c.id} className={`border border-line rounded-lg p-3 space-y-2 ${c.activa ? "" : "opacity-50"}`}>
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-mono text-xs px-2 py-0.5 rounded bg-slate-100">{c.codigo}</span>
+                <span className="font-mono text-xs px-2 py-0.5 rounded bg-paper">{c.codigo}</span>
                 <Input
                   value={c.nombre}
                   onChange={(e) => actualizarCategoria(c.id, { nombre: e.target.value })}
@@ -122,7 +122,7 @@ export function Configuracion() {
                   disabled={!c.activa}
                 />
                 {c.activa && (
-                  <button className="text-xs text-red-600 hover:underline whitespace-nowrap ml-auto" onClick={() => desactivarCategoria(c.id)}>
+                  <button className="text-xs text-terracotta-600 hover:underline whitespace-nowrap ml-auto" onClick={() => desactivarCategoria(c.id)}>
                     Desactivar
                   </button>
                 )}
@@ -155,8 +155,8 @@ export function Configuracion() {
           ))}
         </div>
 
-        <div className="border-t border-slate-200 pt-3 space-y-2">
-          <p className="text-sm font-medium text-slate-700">+ Agregar categoría nueva</p>
+        <div className="border-t border-line pt-3 space-y-2">
+          <p className="text-sm font-medium text-ink">+ Agregar categoría nueva</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input placeholder="Nombre" value={nombreCat} onChange={(e) => setNombreCat(e.target.value)} />
             <Input placeholder="Código (opcional)" value={codigoCat} onChange={(e) => setCodigoCat(e.target.value)} />
@@ -170,12 +170,12 @@ export function Configuracion() {
 
       <Card>
         <SectionTitle>Tu nombre</SectionTitle>
-        <p className="text-sm text-slate-600 mb-3">
+        <p className="text-sm text-ink-soft mb-3">
           Este nombre se usa como autoría en cada trabajo que creas o editas — la metodología pide que la autoría
           siempre sea visible, nunca anónima.
         </p>
-        <Input value={autorActivo} readOnly className="bg-slate-50" />
-        <p className="text-xs text-slate-400 mt-1">Se cambia desde la barra superior.</p>
+        <Input value={autorActivo} readOnly className="bg-paper" />
+        <p className="text-xs text-ink-faint mt-1">Se cambia desde la barra superior.</p>
       </Card>
     </div>
   );

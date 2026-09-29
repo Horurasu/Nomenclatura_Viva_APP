@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAppStore } from "../../store/useAppStore";
-import { codigoEsencialDeTrabajo } from "../../domain/codigo";
+import { codigoEsencialDeTrabajo, colorParaCategoria } from "../../domain/codigo";
+import { COLORES_UI } from "../../domain/constants";
 import { Card, Input, SectionTitle, Select } from "../ui/Primitives";
 import { SemaforoBadge } from "./SemaforoBadge";
 
@@ -10,6 +11,21 @@ export function Tablero() {
   const categorias = useAppStore((s) => s.categorias);
   const irA = useAppStore((s) => s.irA);
   const eliminarTrabajo = useAppStore((s) => s.eliminarTrabajo);
+  const ultimoTrabajoCreadoId = useAppStore((s) => s.ultimoTrabajoCreadoId);
+  const limpiarUltimoTrabajoCreado = useAppStore((s) => s.limpiarUltimoTrabajoCreado);
+
+  const [mostrarConfirmacion, setMostrarConfirmacion] = useState(!!ultimoTrabajoCreadoId);
+
+  useEffect(() => {
+    if (!ultimoTrabajoCreadoId) return;
+    setMostrarConfirmacion(true);
+    const t = setTimeout(() => {
+      setMostrarConfirmacion(false);
+      limpiarUltimoTrabajoCreado();
+    }, 6000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ultimoTrabajoCreadoId]);
 
   const [busqueda, setBusqueda] = useState("");
   const [filtroArea, setFiltroArea] = useState("");
@@ -36,6 +52,24 @@ export function Tablero() {
 
   return (
     <Card>
+      {mostrarConfirmacion && ultimoTrabajoCreadoId && (
+        <div
+          className="flex items-center justify-between gap-2 rounded-md px-4 py-2.5 mb-4 text-sm"
+          style={{ backgroundColor: "#d1fae5", color: "#065f46" }}
+        >
+          <span>✓ Trabajo guardado exitosamente. Ahora puedes verlo en tu tablero y editarlo cuando lo necesites.</span>
+          <button
+            className="text-xs underline shrink-0"
+            onClick={() => {
+              setMostrarConfirmacion(false);
+              limpiarUltimoTrabajoCreado();
+            }}
+          >
+            Cerrar
+          </button>
+        </div>
+      )}
+
       <SectionTitle subtitle={`${filtrados.length} de ${trabajos.length} trabajos`}>Tablero de trabajos</SectionTitle>
 
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-4">
@@ -65,16 +99,17 @@ export function Tablero() {
       </div>
 
       {filtrados.length === 0 ? (
-        <p className="text-sm text-slate-500 py-8 text-center">
+        <p className="text-sm text-ink-soft py-8 text-center">
           No hay trabajos que coincidan. Crea uno nuevo desde "Nuevo trabajo".
         </p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-slate-500 border-b border-slate-200">
+              <tr className="text-left text-ink-faint border-b border-line">
                 <th className="py-2 pr-4">Código</th>
                 <th className="py-2 pr-4">Descripción</th>
+                <th className="py-2 pr-4">Categoría</th>
                 <th className="py-2 pr-4">Estado</th>
                 <th className="py-2 pr-4">Autor</th>
                 <th className="py-2 pr-4">Última edición</th>
@@ -84,8 +119,14 @@ export function Tablero() {
             <tbody>
               {filtrados.map((t) => {
                 const codigo = codigoEsencialDeTrabajo(t);
+                const nombreCategoria = categorias.find((c) => c.codigo === t.categoria)?.nombre ?? t.categoria;
+                const destacado = t.id === ultimoTrabajoCreadoId;
                 return (
-                  <tr key={t.id} className="border-b border-slate-100 hover:bg-slate-50">
+                  <tr
+                    key={t.id}
+                    className={`border-b transition-colors ${destacado ? "animate-pulse" : "hover:bg-paper"}`}
+                    style={destacado ? { backgroundColor: "#d1fae5", borderColor: COLORES_UI.exito } : undefined}
+                  >
                     <td className="py-2 pr-4 font-mono cursor-pointer" onClick={() => irA("DETALLE", t.id)}>
                       {codigo}
                     </td>
@@ -93,15 +134,20 @@ export function Tablero() {
                       {t.clave}
                     </td>
                     <td className="py-2 pr-4">
+                      <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${colorParaCategoria(t.categoria)}`}>
+                        {nombreCategoria}
+                      </span>
+                    </td>
+                    <td className="py-2 pr-4">
                       <SemaforoBadge estado={t.ficha.estadoActual} />
                     </td>
                     <td className="py-2 pr-4">{t.autorUltimaEdicion}</td>
                     <td className="py-2 pr-4">{new Date(t.fechaUltimaEdicion).toLocaleDateString("es-MX")}</td>
                     <td className="py-2 pr-4 whitespace-nowrap">
-                      <button className="text-emerald-600 hover:underline text-xs mr-3" onClick={() => irA("DETALLE", t.id)}>
+                      <button className="text-moss-600 hover:underline text-xs mr-3" onClick={() => irA("DETALLE", t.id)}>
                         Ver / editar
                       </button>
-                      <button className="text-red-600 hover:underline text-xs" onClick={() => manejarEliminar(t.id, codigo)}>
+                      <button className="text-terracotta-600 hover:underline text-xs" onClick={() => manejarEliminar(t.id, codigo)}>
                         Eliminar
                       </button>
                     </td>

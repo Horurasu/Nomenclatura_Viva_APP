@@ -9,14 +9,23 @@ interface AppState {
   cargando: boolean;
   vista: Vista;
   trabajoSeleccionadoId: string | null;
+  ultimoTrabajoCreadoId: string | null;
   autorActivo: string;
   areas: Area[];
   categorias: Categoria[];
   trabajos: Trabajo[];
 
+  // Para las advertencias de respaldo: la app nunca guarda tus archivos ni tus datos en
+  // ningún servidor, así que si nunca has exportado (o hiciste cambios después de la
+  // última exportación), conviene avisarte antes de que los pierdas al cerrar la pestaña.
+  haExportadoAlgunaVez: boolean;
+  cambiosSinExportar: boolean;
+  marcarExportado: () => void;
+
   inicializar: () => Promise<void>;
   irA: (vista: Vista, trabajoId?: string) => void;
   setAutorActivo: (nombre: string) => void;
+  limpiarUltimoTrabajoCreado: () => void;
 
   crearArea: (nombre: string, codigo: string, correoContacto?: string) => Promise<Area>;
   actualizarArea: (id: string, cambios: Partial<Area>) => Promise<void>;
@@ -44,10 +53,19 @@ export const useAppStore = create<AppState>((set, get) => ({
   cargando: true,
   vista: "INICIO",
   trabajoSeleccionadoId: null,
+  ultimoTrabajoCreadoId: null,
   autorActivo: localStorage.getItem("nv_autorActivo") ?? "",
   areas: [],
   categorias: [],
   trabajos: [],
+
+  haExportadoAlgunaVez: localStorage.getItem("nv_haExportadoAlgunaVez") === "true",
+  cambiosSinExportar: localStorage.getItem("nv_cambiosSinExportar") !== "false",
+  marcarExportado: () => {
+    localStorage.setItem("nv_haExportadoAlgunaVez", "true");
+    localStorage.setItem("nv_cambiosSinExportar", "false");
+    set({ haExportadoAlgunaVez: true, cambiosSinExportar: false });
+  },
 
   inicializar: async () => {
     const [areas, categorias, trabajos] = await Promise.all([
@@ -97,6 +115,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ autorActivo: nombre });
   },
 
+  limpiarUltimoTrabajoCreado: () => set({ ultimoTrabajoCreadoId: null }),
+
   crearArea: async (nombre, codigo, correoContacto) => {
     const nueva: Area = {
       id: crypto.randomUUID(),
@@ -108,7 +128,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       fechaCreacion: new Date().toISOString(),
     };
     await db.areas.add(nueva);
-    set({ areas: [...get().areas, nueva] });
+    localStorage.setItem("nv_cambiosSinExportar", "true");
+    set({ areas: [...get().areas, nueva], cambiosSinExportar: true });
     return nueva;
   },
 
@@ -135,7 +156,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       fechaCreacion: new Date().toISOString(),
     };
     await db.categorias.add(nueva);
-    set({ categorias: [...get().categorias, nueva] });
+    localStorage.setItem("nv_cambiosSinExportar", "true");
+    set({ categorias: [...get().categorias, nueva], cambiosSinExportar: true });
     return nueva;
   },
 
@@ -153,14 +175,16 @@ export const useAppStore = create<AppState>((set, get) => ({
     const ahora = new Date().toISOString();
     const nuevo: Trabajo = { ...datos, id: crypto.randomUUID(), fechaCreacion: ahora, fechaUltimaEdicion: ahora };
     await db.trabajos.add(nuevo);
-    set({ trabajos: [...get().trabajos, nuevo] });
+    localStorage.setItem("nv_cambiosSinExportar", "true");
+    set({ trabajos: [...get().trabajos, nuevo], cambiosSinExportar: true, ultimoTrabajoCreadoId: nuevo.id });
     return nuevo;
   },
 
   actualizarTrabajo: async (id, cambios) => {
     const parche = { ...cambios, fechaUltimaEdicion: new Date().toISOString() };
     await db.trabajos.update(id, parche);
-    set({ trabajos: get().trabajos.map((t) => (t.id === id ? { ...t, ...parche } : t)) });
+    localStorage.setItem("nv_cambiosSinExportar", "true");
+    set({ trabajos: get().trabajos.map((t) => (t.id === id ? { ...t, ...parche } : t)), cambiosSinExportar: true });
   },
 
   cambiarEstado: async (id, estado, nota) => {
@@ -183,7 +207,8 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   eliminarTrabajo: async (id) => {
     await db.trabajos.delete(id);
-    set({ trabajos: get().trabajos.filter((t) => t.id !== id) });
+    localStorage.setItem("nv_cambiosSinExportar", "true");
+    set({ trabajos: get().trabajos.filter((t) => t.id !== id), cambiosSinExportar: true });
   },
 
   reemplazarTodo: async (archivo) => {
@@ -195,11 +220,13 @@ export const useAppStore = create<AppState>((set, get) => ({
       await db.categorias.bulkAdd(archivo.categorias);
       await db.trabajos.bulkAdd(archivo.trabajos);
     });
+    localStorage.setItem("nv_cambiosSinExportar", "false");
     set({
       areas: archivo.areas,
       categorias: archivo.categorias,
       trabajos: archivo.trabajos,
       vista: "TABLERO",
+      cambiosSinExportar: false,
     });
   },
 }));

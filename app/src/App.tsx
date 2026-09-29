@@ -11,7 +11,7 @@ export default function App() {
   }, [inicializar]);
 
   if (cargando) {
-    return <div className="min-h-screen flex items-center justify-center text-slate-400 text-sm">Cargando tu nomenclatura...</div>;
+    return <div className="min-h-screen flex items-center justify-center bg-paper text-ink-faint text-sm">Cargando tu nomenclatura...</div>;
   }
 
   return <AppShell />;

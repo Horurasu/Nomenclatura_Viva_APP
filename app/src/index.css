@@ -3,5 +3,10 @@
 @tailwind utilities;
 
 body {
-  @apply bg-slate-50 text-slate-800;
+  background-color: #f8fafc;
+  @apply text-ink;
+}
+
+::selection {
+  @apply bg-moss-200 text-ink;
 }

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAppStore } from "../../store/useAppStore";
-import { asuntoCorreoSugerido, codigoEsencialDeTrabajo } from "../../domain/codigo";
+import { asuntoCorreoSugerido, codigoEsencialDeTrabajo, colorParaCategoria } from "../../domain/codigo";
 import { LIMITE_CLAVE, UBICACION_AYUDA } from "../../domain/constants";
 import type { EstadoSemaforo } from "../../domain/types";
 import { Button, Card, InfoBox, Input, Label, SectionTitle, Select } from "../ui/Primitives";
@@ -24,9 +24,9 @@ export function FichaDetalle() {
   if (!trabajo) {
     return (
       <Card>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-ink-soft">
           No se encontró el trabajo.{" "}
-          <button className="text-emerald-600 underline" onClick={() => irA("TABLERO")}>
+          <button className="text-moss-600 underline" onClick={() => irA("TABLERO")}>
             Volver al tablero
           </button>
         </p>
@@ -36,6 +36,7 @@ export function FichaDetalle() {
 
   const codigoEsencial = codigoEsencialDeTrabajo(trabajo);
   const areaActual = areas.find((a) => a.codigo === trabajo.areaCodigo);
+  const categoriaActual = categorias.find((c) => c.codigo === trabajo.categoria);
   const correoContacto = areaActual?.correoContacto;
   const asunto = asuntoCorreoSugerido(trabajo);
 
@@ -53,18 +54,35 @@ export function FichaDetalle() {
 
   return (
     <div className="space-y-6">
-      <p className="text-xs text-slate-400">
+      <p className="text-xs text-ink-faint">
+        <button className="hover:underline" onClick={() => irA("INICIO")}>
+          Inicio
+        </button>{" "}
+        /{" "}
         <button className="hover:underline" onClick={() => irA("TABLERO")}>
           Tablero
         </button>{" "}
-        › {codigoEsencial}
+        / {codigoEsencial}
       </p>
 
       <Card>
         <div className="flex items-start justify-between flex-wrap gap-3">
           <div>
-            <p className="text-xs text-slate-400 font-mono">{codigoEsencial}</p>
-            <h2 className="text-xl font-semibold text-slate-900">{trabajo.clave}</h2>
+            <span className="inline-block text-[10px] font-semibold uppercase tracking-wide text-moss-700 bg-moss-50 rounded px-1.5 py-0.5 mb-1">
+              Trabajo activo
+            </span>
+            <p className="text-xs text-ink-faint font-mono">{codigoEsencial}</p>
+            <h2 className="text-xl font-semibold text-ink">{trabajo.clave}</h2>
+            <div className="flex items-center gap-2 mt-1">
+              {categoriaActual && (
+                <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${colorParaCategoria(categoriaActual.codigo)}`}>
+                  {categoriaActual.nombre}
+                </span>
+              )}
+              <span className="text-[11px] text-ink-faint">
+                Creado el {new Date(trabajo.fechaCreacion).toLocaleDateString("es-MX")} por {trabajo.autorCreacion}
+              </span>
+            </div>
           </div>
           <SemaforoBadge estado={trabajo.ficha.estadoActual} />
         </div>
@@ -123,21 +141,21 @@ export function FichaDetalle() {
       <Card>
         <SectionTitle>¿Cómo fluye este trabajo?</SectionTitle>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="border border-slate-200 rounded-lg p-3">
+          <div className="border border-line rounded-md p-3">
             <Label>📥 De dónde viene (origen)</Label>
             <Input
               value={trabajo.ficha.origen}
               onChange={(e) => actualizarTrabajo(trabajo.id, { ficha: { ...trabajo.ficha, origen: e.target.value } })}
             />
           </div>
-          <div className="border border-slate-200 rounded-lg p-3">
+          <div className="border border-line rounded-md p-3">
             <Label>⚙️ Acción</Label>
             <Input
               value={trabajo.ficha.accion}
               onChange={(e) => actualizarTrabajo(trabajo.id, { ficha: { ...trabajo.ficha, accion: e.target.value } })}
             />
           </div>
-          <div className="border border-slate-200 rounded-lg p-3">
+          <div className="border border-line rounded-md p-3">
             <Label>📤 A dónde va (destino)</Label>
             <Input
               value={trabajo.ficha.destino}
@@ -163,6 +181,9 @@ export function FichaDetalle() {
         <div className="mt-3">
           <InfoBox tono="warning">{UBICACION_AYUDA[trabajo.ubicacion.tipo](codigoEsencial, trabajo.areaCodigo, trabajo.categoria)}</InfoBox>
         </div>
+        <p className="text-[11px] text-ink-faint mt-2">
+          Recuerda: este campo solo documenta dónde planeas guardarlo — la app no guarda el archivo ni el correo por ti.
+        </p>
       </Card>
 
       <Card>
@@ -172,21 +193,21 @@ export function FichaDetalle() {
         <div className="space-y-2">
           <div>
             <Label>Asunto sugerido</Label>
-            <p className="font-mono text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">{asunto}</p>
+            <p className="font-mono text-sm bg-paper border border-line rounded-md px-3 py-2 text-ink">{asunto}</p>
           </div>
           {correoContacto && (
-            <p className="text-sm text-slate-600">
-              Contacto del área: <a className="text-emerald-600 underline" href={`mailto:${correoContacto}`}>{correoContacto}</a>
+            <p className="text-sm text-ink-soft">
+              Contacto del área: <a className="text-moss-600 underline" href={`mailto:${correoContacto}`}>{correoContacto}</a>
             </p>
           )}
           <a
             href={`mailto:${correoContacto ?? ""}?subject=${encodeURIComponent(asunto)}`}
-            className="inline-block px-4 py-2 rounded-lg font-medium text-sm bg-emerald-600 text-white hover:bg-emerald-700"
+            className="inline-block px-4 py-2 rounded-md font-medium text-sm bg-moss-600 text-white hover:bg-moss-700 transition-colors"
           >
-            ✉️ Redactar correo sobre este trabajo
+            ✉ Redactar correo sobre este trabajo
           </a>
           {!correoContacto && (
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-ink-faint">
               El área no tiene correo de contacto configurado — agrégalo desde Configuración para que se rellene solo.
             </p>
           )}
@@ -202,18 +223,18 @@ export function FichaDetalle() {
         <SectionTitle>Historial de estados</SectionTitle>
         <ul className="space-y-2">
           {[...trabajo.ficha.historialEstados].reverse().map((c) => (
-            <li key={c.id} className="text-sm border-l-2 border-emerald-500 pl-3">
+            <li key={c.id} className="text-sm border-l-2 border-moss-400 pl-3">
               <SemaforoBadge estado={c.estado} />
-              <span className="text-slate-500 ml-2">
+              <span className="text-ink-faint ml-2">
                 {new Date(c.fecha).toLocaleString("es-MX")} · {c.autor}
               </span>
-              {c.nota && <p className="text-slate-600 mt-0.5">{c.nota}</p>}
+              {c.nota && <p className="text-ink-soft mt-0.5">{c.nota}</p>}
             </li>
           ))}
         </ul>
       </Card>
 
-      <Card className="border-red-200">
+      <Card className="border-terracotta-200">
         <SectionTitle subtitle="Esta acción no se puede deshacer.">Eliminar este trabajo</SectionTitle>
         <Button variant="danger" onClick={manejarEliminar}>
           Eliminar trabajo

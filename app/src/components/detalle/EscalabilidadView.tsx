@@ -31,7 +31,7 @@ export function EscalabilidadView({ trabajo }: { trabajo: Trabajo }) {
       <FilaNivel etiqueta="Institución" codigo={niveles.institucion ?? "— agrega un prefijo de institución abajo"} />
       <FilaNivel etiqueta="Región" codigo={niveles.region ?? "— agrega prefijo de institución y de región"} />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-slate-100">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-line">
         <div>
           <Label>Prefijo de institución (ej. INST, o el código de tu institución)</Label>
           <Input value={prefijoInstitucion} onChange={(e) => setPrefijoInstitucion(e.target.value.toUpperCase())} onBlur={guardarPrefijos} />
@@ -50,9 +50,9 @@ export function EscalabilidadView({ trabajo }: { trabajo: Trabajo }) {
 
 function FilaNivel({ etiqueta, codigo }: { etiqueta: string; codigo: string }) {
   return (
-    <div className="flex items-center justify-between text-sm bg-slate-50 rounded-lg px-3 py-2">
-      <span className="text-slate-500">{etiqueta}</span>
-      <span className="font-mono text-slate-800">{codigo}</span>
+    <div className="flex items-center justify-between text-sm bg-paper rounded-md px-3 py-2">
+      <span className="text-ink-soft">{etiqueta}</span>
+      <span className="font-mono text-ink">{codigo}</span>
     </div>
   );
 }

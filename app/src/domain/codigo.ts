@@ -1,4 +1,4 @@
-import { LIMITE_CLAVE } from "./constants";
+import { LIMITE_CLAVE, PALETA_CATEGORIAS } from "./constants";
 
 // Convierte texto libre en un segmento válido de código: mayúsculas, sin acentos,
 // sin espacios ni símbolos.
@@ -53,4 +53,13 @@ export function excedeLimiteClave(clave: string): boolean {
 // buscar y filtrar el hilo después) y la descripción legible.
 export function asuntoCorreoSugerido(t: { areaCodigo: string; categoria: string; clave: string }): string {
   return `${codigoEsencialDeTrabajo(t)} — ${t.clave}`;
+}
+
+// Mismo código de categoría → siempre el mismo color, sin necesidad de guardarlo.
+export function colorParaCategoria(codigoCategoria: string): string {
+  let hash = 0;
+  for (let i = 0; i < codigoCategoria.length; i++) {
+    hash = (hash * 31 + codigoCategoria.charCodeAt(i)) % PALETA_CATEGORIAS.length;
+  }
+  return PALETA_CATEGORIAS[Math.abs(hash)];
 }

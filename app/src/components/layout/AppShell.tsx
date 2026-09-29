@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useAppStore, type Vista } from "../../store/useAppStore";
 import { Inicio } from "../inicio/Inicio";
 import { WizardCrearTrabajo } from "../wizard/WizardCrearTrabajo";
@@ -6,13 +7,15 @@ import { FichaDetalle } from "../detalle/FichaDetalle";
 import { ExportarImportar } from "../exportImport/ExportarImportar";
 import { Configuracion } from "../configuracion/Configuracion";
 import { Input } from "../ui/Primitives";
+import { ModalBienvenida, huboBienvenida } from "../ui/ModalBienvenida";
+import { COLORES_UI } from "../../domain/constants";
 
-const NAV_ITEMS: { vista: Vista; etiqueta: string }[] = [
-  { vista: "INICIO", etiqueta: "Inicio" },
-  { vista: "NUEVO_TRABAJO", etiqueta: "Nuevo trabajo" },
-  { vista: "TABLERO", etiqueta: "Tablero" },
-  { vista: "EXPORTAR_IMPORTAR", etiqueta: "Exportar / Importar" },
-  { vista: "CONFIGURACION", etiqueta: "Configuración" },
+const NAV_ITEMS: { vista: Vista; etiqueta: string; icono: string }[] = [
+  { vista: "INICIO", etiqueta: "Inicio", icono: "🏠" },
+  { vista: "NUEVO_TRABAJO", etiqueta: "Nuevo trabajo", icono: "✨" },
+  { vista: "TABLERO", etiqueta: "Tablero", icono: "📋" },
+  { vista: "EXPORTAR_IMPORTAR", etiqueta: "Respaldo", icono: "💾" },
+  { vista: "CONFIGURACION", etiqueta: "Configuración", icono: "⚙️" },
 ];
 
 // El detalle de un trabajo se abre desde el Tablero, así que ese botón se ve
@@ -22,18 +25,51 @@ function estaActivo(item: Vista, vistaActual: Vista) {
   return item === vistaActual;
 }
 
+function iniciales(nombre: string): string {
+  const partes = nombre.trim().split(/\s+/).filter(Boolean);
+  if (partes.length === 0) return "?";
+  if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
+  return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase();
+}
+
 export function AppShell() {
   const vista = useAppStore((s) => s.vista);
   const irA = useAppStore((s) => s.irA);
   const autorActivo = useAppStore((s) => s.autorActivo);
   const setAutorActivo = useAppStore((s) => s.setAutorActivo);
+  const cambiosSinExportar = useAppStore((s) => s.cambiosSinExportar);
+  const totalTrabajos = useAppStore((s) => s.trabajos.length);
+
+  const [mostrarBienvenida, setMostrarBienvenida] = useState(!huboBienvenida());
+  const [editandoNombre, setEditandoNombre] = useState(false);
+
+  // Advertencia nativa del navegador si intentas cerrar/recargar con cambios sin
+  // respaldar — la app nunca guarda nada en un servidor, así que perderlos sería
+  // irreversible.
+  useEffect(() => {
+    function manejar(e: BeforeUnloadEvent) {
+      if (cambiosSinExportar && totalTrabajos > 0) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    }
+    window.addEventListener("beforeunload", manejar);
+    return () => window.removeEventListener("beforeunload", manejar);
+  }, [cambiosSinExportar, totalTrabajos]);
+
+  const enDetalle = vista === "DETALLE";
 
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="bg-white border-b border-slate-200 px-6 py-3 flex flex-wrap items-center gap-4 justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-xl">🌿</span>
-          <span className="font-semibold text-slate-900">Nomenclatura Viva</span>
+      {mostrarBienvenida && <ModalBienvenida onCerrar={() => setMostrarBienvenida(false)} />}
+
+      <header
+        className="px-6 py-3 flex flex-wrap items-center gap-4 justify-between transition-colors"
+        style={{ backgroundColor: enDetalle ? COLORES_UI.navbarTrabajo : COLORES_UI.navbarNormal }}
+      >
+        <div className="flex items-center gap-2.5">
+          <span className="text-lg">🌿</span>
+          <span className="font-medium tracking-tight text-white">Nomenclatura Viva</span>
         </div>
 
         <nav className="flex flex-wrap gap-1">
@@ -41,25 +77,45 @@ export function AppShell() {
             <button
               key={item.vista}
               onClick={() => irA(item.vista)}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${
-                estaActivo(item.vista, vista) ? "bg-emerald-600 text-white" : "text-slate-600 hover:bg-slate-100"
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                estaActivo(item.vista, vista) ? "bg-white/20 text-white" : "text-white/70 hover:bg-white/10 hover:text-white"
               }`}
             >
-              {item.etiqueta}
+              <span>{item.icono}</span>
+              <span>{item.etiqueta}</span>
             </button>
           ))}
         </nav>
 
-        <div className="flex flex-col items-start">
-          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Tu nombre (quedará como autor)</span>
-          <div className="w-48">
-            <Input placeholder="Escribe tu nombre..." value={autorActivo} onChange={(e) => setAutorActivo(e.target.value)} />
-          </div>
+        <div className="relative">
+          {editandoNombre ? (
+            <div className="w-48">
+              <Input
+                autoFocus
+                placeholder="Escribe tu nombre..."
+                value={autorActivo}
+                onChange={(e) => setAutorActivo(e.target.value)}
+                onBlur={() => setEditandoNombre(false)}
+                onKeyDown={(e) => e.key === "Enter" && setEditandoNombre(false)}
+              />
+            </div>
+          ) : (
+            <button
+              onClick={() => setEditandoNombre(true)}
+              title={autorActivo ? `${autorActivo} — clic para cambiar tu nombre` : "Clic para escribir tu nombre (quedará como autor)"}
+              className="flex items-center gap-2 px-2 py-1 rounded-md transition-colors hover:bg-white/10"
+            >
+              <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold bg-white/20 text-white">
+                {iniciales(autorActivo || "?")}
+              </span>
+              <span className="text-sm text-white hidden sm:inline">{autorActivo || "Sin nombre"}</span>
+            </button>
+          )}
         </div>
       </header>
 
-      {vista === "DETALLE" && (
-        <div className="bg-emerald-50 border-b border-emerald-100 px-6 py-2 text-xs text-emerald-800 flex items-center gap-2">
+      {enDetalle && (
+        <div className="bg-moss-50 border-b border-moss-100 px-6 py-2 text-xs text-moss-700 flex items-center gap-2">
           <span>📄 Estás dentro de un trabajo (no en el tablero general).</span>
           <button className="underline font-medium" onClick={() => irA("TABLERO")}>
             ← Volver al tablero
@@ -75,6 +131,11 @@ export function AppShell() {
         {vista === "EXPORTAR_IMPORTAR" && <ExportarImportar />}
         {vista === "CONFIGURACION" && <Configuracion />}
       </main>
+
+      <footer className="bg-ink text-paper/70 text-xs px-6 py-2.5 text-center border-t border-ink">
+        Esta aplicación no guarda ni gestiona tus archivos ni tus correos. Tú organizas tus carpetas y documentos
+        donde ya los manejas — esta herramienta solo ayuda a nombrar, clasificar y dar trazabilidad a tu trabajo.
+      </footer>
     </div>
   );
 }

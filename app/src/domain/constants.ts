@@ -21,11 +21,31 @@ export const CATEGORIAS_SEED: CategoriaSeed[] = [
   { codigo: "APOYO", nombre: "Apoyo a áreas", deDondeViene: "Solicitud de otra área", aDondeVa: "Servicio o insumo entregado" },
 ];
 
-export const SEMAFORO_INFO: Record<EstadoSemaforo, { emoji: string; etiqueta: string }> = {
-  ROJO: { emoji: "🔴", etiqueta: "Por iniciar" },
-  AMBAR: { emoji: "🟡", etiqueta: "En curso" },
-  VERDE: { emoji: "🟢", etiqueta: "Concluido" },
+export const SEMAFORO_INFO: Record<EstadoSemaforo, { emoji: string; etiqueta: string; bg: string; texto: string }> = {
+  ROJO: { emoji: "🔴", etiqueta: "Por iniciar", bg: "#fee2e2", texto: "#991b1b" },
+  AMBAR: { emoji: "🟡", etiqueta: "En curso", bg: "#fef3c7", texto: "#92400e" },
+  VERDE: { emoji: "🟢", etiqueta: "Concluido", bg: "#d1fae5", texto: "#065f46" },
 };
+
+// Paleta institucional exacta pedida para navbar, fondos por sección y estados.
+export const COLORES_UI = {
+  fondoPagina: "#f8fafc",
+  navbarNormal: "#1e3a5f",
+  navbarTrabajo: "#3730a3",
+  inicio: "#ffffff",
+  pasoArea: "#f0f9ff",
+  pasoCategoria: "#ecfdf5",
+  pasoClave: "#fffbeb",
+  pasoClaveBorde: "#f59e0b",
+  pasoTrazabilidad: "#faf5ff",
+  pasoEscalabilidad: "#ecfdf5",
+  pasoResumen: "#f8fafc",
+  respaldo: "#fff7ed",
+  respaldoBorde: "#f97316",
+  exito: "#10b981",
+  advertencia: "#f59e0b",
+  error: "#ef4444",
+} as const;
 
 export const UBICACION_INFO: Record<TipoUbicacion, { icono: string; etiqueta: string; descripcion: string }> = {
   FISICO: { icono: "🗄️", etiqueta: "Físico", descripcion: "Papel, archivero, carpeta física" },
@@ -35,40 +55,58 @@ export const UBICACION_INFO: Record<TipoUbicacion, { icono: string; etiqueta: st
   OTRO: { icono: "📌", etiqueta: "Otro", descripcion: "Cualquier otro medio" },
 };
 
-// Ejemplos didácticos para el paso "Clave": la nomenclatura no es solo para archivos —
-// también sirve para correos, reuniones o trámites. Cada ejemplo se puede usar como
-// punto de partida con un clic.
-export interface EjemploClave {
-  icono: string;
-  titulo: string;
-  ejemplo: string;
-  tip: string;
+// Generador de ideas para la Clave: categorías de trabajo típicas, cada una con un
+// formato sugerido y un ejemplo completo listo para usar como punto de partida.
+export interface FormatoClave {
+  categoria: string;
+  ejemplos: string[];
+  formato: string;
+  ejemploCompleto: string;
+  etiquetaBoton: string;
 }
 
-export const EJEMPLOS_CLAVE: EjemploClave[] = [
+export const GENERADOR_CLAVE: FormatoClave[] = [
   {
-    icono: "📧",
-    titulo: "Si vas a escribir o dar seguimiento a un correo",
-    ejemplo: "Seguimiento convenio Universidad XYZ",
-    tip: "Escribe la clave como si fuera el asunto del correo — con eso ya tienes el asunto sugerido para todo el hilo.",
+    categoria: "Eventos académicos",
+    ejemplos: ["CONGRESO", "JORNADA", "SEMINARIO", "TALLER", "WEBINAR"],
+    formato: "[TIPO]-[AÑO]",
+    ejemploCompleto: "CONGRESO-2025",
+    etiquetaBoton: "Usar formato para eventos",
   },
   {
-    icono: "📁",
-    titulo: "Si es un archivo o documento",
-    ejemplo: "Catálogo de libros 2026",
-    tip: "Piensa en cómo lo buscarías después en tu computadora o en la nube.",
+    categoria: "Correos y comunicados",
+    ejemplos: ["CIRCULAR", "AVISO", "CONVOCATORIA", "INVITACION"],
+    formato: "[TIPO]-[DESTINATARIO]",
+    ejemploCompleto: "CIRCULAR-DOCENTES",
+    etiquetaBoton: "Usar formato para comunicados",
   },
   {
-    icono: "🗓️",
-    titulo: "Si es una reunión o evento",
-    ejemplo: "Reunión trimestral marzo 2026",
-    tip: "Incluye una referencia de tiempo para diferenciarla de reuniones futuras.",
+    categoria: "Documentos administrativos",
+    ejemplos: ["SOLICITUD", "REPORTE", "MEMORANDUM", "OFICIO"],
+    formato: "[TIPO]-[AREA]",
+    ejemploCompleto: "SOLICITUD-BIBLIO",
+    etiquetaBoton: "Usar formato para administrativos",
   },
   {
-    icono: "📝",
-    titulo: "Si es un trámite o gestión",
-    ejemplo: "Solicitud de equipo de cómputo",
-    tip: "Describe la acción, no solo el objeto — mejor 'Solicitud de...' que solo 'Equipo'.",
+    categoria: "Productos digitales",
+    ejemplos: ["VIDEO", "PODCAST", "ENTRADA-BLOG", "INFOGRAFIA"],
+    formato: "[MEDIO]-[TEMA]",
+    ejemploCompleto: "VIDEO-CATALOGO",
+    etiquetaBoton: "Usar formato para digitales",
+  },
+  {
+    categoria: "Proyectos de área",
+    ejemplos: ["CATALOGO", "MANUAL", "GUIA", "PLAN", "PROGRAMA"],
+    formato: "[PRODUCTO]-[VERSION]",
+    ejemploCompleto: "MANUAL-v1",
+    etiquetaBoton: "Usar formato para proyectos",
+  },
+  {
+    categoria: "Apoyo a otras áreas",
+    ejemplos: ["SOPORTE-TI", "INSUMO-DISEÑO", "TICKET-MANTENIMIENTO"],
+    formato: "[TIPO]-[AREA-DESTINO]",
+    ejemploCompleto: "SOPORTE-ACAD",
+    etiquetaBoton: "Usar formato para apoyos",
   },
 ];
 
@@ -88,6 +126,17 @@ export const UBICACION_AYUDA: Record<TipoUbicacion, (codigo: string, areaCodigo:
   OTRO: (codigo) =>
     `Anota junto al trabajo, con tus propias palabras, cómo encontrarlo — usa "${codigo}" como referencia para que quede buscable sin importar el medio.`,
 };
+
+// Paleta para distinguir categorías con un color consistente (mismo código → mismo color
+// siempre), usada como acento visual junto al nombre de la categoría.
+export const PALETA_CATEGORIAS = [
+  "bg-ai-100 text-ai-700",
+  "bg-moss-100 text-moss-700",
+  "bg-kaki-100 text-kaki-700",
+  "bg-budou-100 text-budou-700",
+  "bg-terracotta-100 text-terracotta-700",
+  "bg-ink-faint/20 text-ink-soft",
+];
 
 export const ACCIONES_SUGERIDAS = [
   "Construir",

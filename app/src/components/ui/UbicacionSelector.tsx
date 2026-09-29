@@ -16,13 +16,13 @@ export function UbicacionSelector({ value, onChange }: { value: TipoUbicacion; o
             key={tipo}
             type="button"
             onClick={() => onChange(tipo)}
-            className={`flex flex-col items-center text-center gap-1 rounded-lg border p-3 transition ${
-              activo ? "border-emerald-600 bg-emerald-50" : "border-slate-200 hover:border-emerald-300"
+            className={`flex flex-col items-center text-center gap-1 rounded-md border p-3 transition-colors ${
+              activo ? "border-moss-500 bg-moss-50" : "border-line hover:border-moss-300"
             }`}
           >
             <span className="text-2xl">{info.icono}</span>
-            <span className="text-xs font-medium text-slate-800">{info.etiqueta}</span>
-            <span className="text-[10px] text-slate-500 leading-tight">{info.descripcion}</span>
+            <span className="text-xs font-medium text-ink">{info.etiqueta}</span>
+            <span className="text-[10px] text-ink-soft leading-tight">{info.descripcion}</span>
           </button>
         );
       })}
