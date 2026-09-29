@@ -22,11 +22,16 @@ export function Button({
   );
 }
 
+// Borde más marcado + sombra sutil: que un campo donde se escribe se note distinto de
+// una tarjeta de solo lectura (InfoBox, ejemplos, guías) a simple vista.
+const ESTILO_CAMPO =
+  "border-ink-faint/60 shadow-sm focus:outline-none focus:border-moss-500 focus:ring-2 focus:ring-moss-300 transition-colors";
+
 export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
-      className={`w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:border-moss-400 focus:ring-1 focus:ring-moss-400 transition-colors ${props.className ?? ""}`}
+      className={`w-full rounded-md border bg-white px-3 py-2 text-sm text-ink placeholder:text-ink-faint ${ESTILO_CAMPO} ${props.className ?? ""}`}
     />
   );
 }
@@ -35,7 +40,7 @@ export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
       {...props}
-      className={`w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink focus:outline-none focus:border-moss-400 focus:ring-1 focus:ring-moss-400 transition-colors ${props.className ?? ""}`}
+      className={`w-full rounded-md border bg-white px-3 py-2 text-sm text-ink ${ESTILO_CAMPO} ${props.className ?? ""}`}
     />
   );
 }
@@ -44,9 +49,15 @@ export function TextArea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <textarea
       {...props}
-      className={`w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:border-moss-400 focus:ring-1 focus:ring-moss-400 transition-colors ${props.className ?? ""}`}
+      className={`w-full rounded-md border bg-white px-3 py-2 text-sm text-ink placeholder:text-ink-faint ${ESTILO_CAMPO} ${props.className ?? ""}`}
     />
   );
+}
+
+// Envoltura para agrupar controles interactivos (radios, checkboxes, varios campos)
+// que no son un <Input>/<Select> individual — mismo lenguaje visual "esto se llena/elige".
+export function CampoBloque({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return <div className={`bg-white border border-ink-faint/60 shadow-sm rounded-md p-3 ${className}`}>{children}</div>;
 }
 
 export function Label({ children }: { children: ReactNode }) {

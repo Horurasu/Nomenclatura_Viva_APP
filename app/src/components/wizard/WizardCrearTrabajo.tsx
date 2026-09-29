@@ -1,7 +1,15 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { saveAs } from "file-saver";
 import { useAppStore } from "../../store/useAppStore";
-import { ACCIONES_SUGERIDAS, COLORES_UI, GENERADOR_CLAVE, LIMITE_CLAVE, UBICACION_AYUDA } from "../../domain/constants";
+import {
+  ACCIONES_SUGERIDAS,
+  CATEGORIA_ICONOS,
+  COLORES_UI,
+  EJEMPLOS_AREA,
+  GENERADOR_CLAVE,
+  LIMITE_CLAVE,
+  UBICACION_AYUDA,
+} from "../../domain/constants";
 import { construirCodigoEsencial, escalarCodigo, excedeLimiteClave, sanearSegmento } from "../../domain/codigo";
 import type { TipoUbicacion } from "../../domain/types";
 import { Button, Card, Input, InfoBox, Label, SectionTitle, Select } from "../ui/Primitives";
@@ -58,6 +66,7 @@ export function WizardCrearTrabajo() {
   const [tipoUbicacion, setTipoUbicacion] = useState<TipoUbicacion>("DIGITAL_LOCAL");
   const [descripcionUbicacion, setDescripcionUbicacion] = useState("");
   const [estructuraCreada, setEstructuraCreada] = useState(false);
+  const [modoUbicacion, setModoUbicacion] = useState<"YA_CREADA" | "POR_PLANEAR">("POR_PLANEAR");
 
   // Escalabilidad
   const [nivelAlcance, setNivelAlcance] = useState<NivelAlcance>("AREA");
@@ -218,10 +227,37 @@ export function WizardCrearTrabajo() {
       {paso === 0 && (
         <div className="space-y-4 rounded-lg p-5" style={{ backgroundColor: colorPaso.bg }}>
           <InfoBox>
-            Un <strong>área</strong> es la unidad de tu institución dueña de este trabajo. Ejemplos: Biblioteca,
-            Administración, Recursos Humanos, Comunicación, Servicios Escolares... Si la tuya no aparece en la
-            lista, créala aquí abajo: solo necesitas un nombre, el código corto se genera solo.
+            Un <strong>área</strong> es la unidad de tu institución dueña de este trabajo — de ahí "salen" las áreas:
+            de cómo ya está organizada tu institución en departamentos o equipos. Si la tuya no aparece en la lista,
+            créala abajo: solo necesitas un nombre, el código corto se genera solo.
           </InfoBox>
+
+          <div>
+            <p className="text-xs font-medium text-ink-soft mb-2">Ejemplos de áreas típicas</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {EJEMPLOS_AREA.map((ej) => (
+                <div key={ej.nombre} className="flex flex-col items-center text-center gap-1 bg-white border border-line rounded-md p-2">
+                  <span className="text-xl">{ej.icono}</span>
+                  <span className="text-[11px] text-ink-soft leading-tight">{ej.nombre}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-white/40 border border-dashed border-ink-faint/50 rounded-md p-3">
+            <p className="text-xs font-semibold text-ink-soft mb-1">¿Cómo se genera el código del área?</p>
+            <p className="text-xs text-ink-soft mb-2">
+              Escribes el nombre completo y la app arma sola un código corto con eso — tú no tienes que inventarlo.
+            </p>
+            <div className="flex items-center gap-2 text-xs font-mono flex-wrap">
+              <span className="px-2 py-1 rounded bg-ai-100 text-ai-700">Biblioteca</span>
+              <span className="text-ink-faint">→</span>
+              <span className="px-2 py-1 rounded bg-ink text-paper">BIBLIOTECA</span>
+            </div>
+            <p className="text-xs text-moss-700 mt-2">✅ "Biblioteca" — claro, cualquiera lo reconoce.</p>
+            <p className="text-xs text-terracotta-600">❌ "Depto 3" — no dice qué área es.</p>
+          </div>
+
           {!mostrarNuevaArea ? (
             <>
               <Select value={areaCodigo} onChange={(e) => setAreaCodigo(e.target.value)}>
@@ -237,7 +273,7 @@ export function WizardCrearTrabajo() {
               </Button>
             </>
           ) : (
-            <div className="space-y-3 border border-line rounded-md p-4 bg-white">
+            <div className="space-y-3 border-2 border-ink-faint/60 shadow-sm rounded-md p-4 bg-white">
               <div>
                 <Label>Nombre del área</Label>
                 <Input value={nuevaAreaNombre} onChange={(e) => setNuevaAreaNombre(e.target.value)} placeholder="Ej. Biblioteca" />
@@ -270,9 +306,21 @@ export function WizardCrearTrabajo() {
         <div className="space-y-3 rounded-lg p-5" style={{ backgroundColor: colorPaso.bg }}>
           <InfoBox>
             Una <strong>categoría</strong> describe qué tipo de acción es este trabajo (un proyecto, un convenio, una
-            producción...). Puedes usar las que ya existen, o crear/editar las que tu institución necesite — se
-            guardan también en tu archivo al exportar, así que viajan si comparas tu trabajo con el de un compañero.
+            producción...). <strong>¿Para qué sirve?</strong> Es el vocabulario común entre áreas: te permite
+            encontrar y comparar todos los trabajos del mismo tipo, aunque sean de departamentos distintos.
           </InfoBox>
+          <InfoBox tono="warning">
+            <strong>Mejora continua:</strong> no tienen que quedarse como están — puedes editar su nombre o crear
+            categorías nuevas si tu institución las necesita, aquí mismo o desde Configuración. Cada cambio viaja en
+            tu archivo exportado.
+          </InfoBox>
+
+          <div className="bg-white/40 border border-dashed border-ink-faint/50 rounded-md p-3">
+            <p className="text-xs font-semibold text-ink-soft mb-1">✅ / ❌ al elegir categoría</p>
+            <p className="text-xs text-moss-700">✅ Un video institucional → Divulgación (es para mostrarlo, no para gestionarlo)</p>
+            <p className="text-xs text-terracotta-600">❌ Ese mismo video clasificado como "Administración" — no dice qué tipo de acción es</p>
+          </div>
+
           {!mostrarNuevaCategoria ? (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -284,7 +332,8 @@ export function WizardCrearTrabajo() {
                       categoria === c.codigo ? "border-moss-500 bg-moss-50" : "border-line hover:border-moss-300"
                     }`}
                   >
-                    <div className="font-medium text-ink">
+                    <div className="font-medium text-ink flex items-center gap-1.5">
+                      <span>{CATEGORIA_ICONOS[c.codigo] ?? "🏷️"}</span>
                       {c.nombre} <span className="text-ink-faint font-normal">({c.codigo})</span>
                     </div>
                     <div className="text-xs text-ink-soft mt-1">De: {c.deDondeViene}</div>
@@ -297,7 +346,7 @@ export function WizardCrearTrabajo() {
               </Button>
             </>
           ) : (
-            <div className="space-y-3 border border-line rounded-md p-4 bg-white">
+            <div className="space-y-3 border-2 border-ink-faint/60 shadow-sm rounded-md p-4 bg-white">
               <div>
                 <Label>Nombre de la categoría</Label>
                 <Input value={nuevaCatNombre} onChange={(e) => setNuevaCatNombre(e.target.value)} placeholder="Ej. Vinculación" />
@@ -349,15 +398,17 @@ export function WizardCrearTrabajo() {
           <div className="bg-white/70 rounded-lg p-4 border border-kaki-200">
             <p className="text-sm font-semibold text-ink mb-1">Generador de ideas para tu clave</p>
             <p className="text-xs text-ink-soft mb-3">
-              Si no sabes cómo nombrar tu trabajo, elige una categoría de ejemplos aquí abajo. Si ya tienes una idea,
-              escríbela directamente en el campo manual más abajo — ambas formas funcionan.
+              Estos son <strong>ejemplos de partida, no reglas fijas</strong> — adáptalos a tu propio trabajo. Si no
+              sabes cómo nombrar tu trabajo, elige una categoría aquí abajo y ajusta el resultado. Si ya tienes una
+              idea, escríbela directamente en el campo manual más abajo — ambas formas funcionan.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {GENERADOR_CLAVE.map((g) => (
                 <div key={g.categoria} className="border border-kaki-200 rounded-md p-3 bg-white">
                   <p className="text-xs font-semibold text-ink mb-1">{g.categoria}</p>
                   <p className="text-[11px] text-ink-soft mb-1">{g.ejemplos.join(", ")}</p>
-                  <p className="text-[11px] font-mono text-ink-faint mb-2">Formato: {g.formato}</p>
+                  <p className="text-[11px] font-mono text-ink-faint mb-1">Formato: {g.formato}</p>
+                  <p className="text-[11px] text-ink-faint mb-2 leading-snug">{g.comoSeConstruye}</p>
                   <button
                     type="button"
                     onClick={() => setClaveInput(g.ejemploCompleto)}
@@ -367,6 +418,14 @@ export function WizardCrearTrabajo() {
                   </button>
                 </div>
               ))}
+            </div>
+            <div className="mt-3 pt-3 border-t border-kaki-200">
+              <p className="text-xs text-ink-soft">
+                <strong>No estás obligado a usar estos formatos.</strong> Puedes escribir tu clave de otra forma que
+                se adapte mejor a tu trabajo — solo recomendaciones: que no sea muy larga, que sea específica, y que
+                incluya una fecha si aplica. Ejemplo generado de otra forma:{" "}
+                <span className="font-mono">"Revisión trimestral biblioteca — marzo 2026"</span>.
+              </p>
             </div>
           </div>
 
@@ -395,14 +454,17 @@ export function WizardCrearTrabajo() {
             <span className="px-2 py-1 rounded bg-ink text-paper">{codigoEsencial || "CÓDIGO COMPLETO"}</span>
           </div>
 
-          <div className="bg-white border border-kaki-200 rounded-md p-3">
+          <div className="bg-white/40 border border-dashed border-kaki-300 rounded-md p-3">
             <p className="text-xs font-semibold text-ink-soft mb-1">Paso a paso para escribir tu clave:</p>
             <ol className="text-xs text-ink-soft list-decimal ml-4 space-y-0.5">
               <li>Piensa en el nombre natural del trabajo (ej. "Catálogo de biblioteca").</li>
               <li>Redúcelo a algo corto y claro (ej. "Catálogo").</li>
-              <li>Evita números sueltos o fechas exactas aquí — eso puede ir en el nombre del archivo real.</li>
+              <li>Si tiene fecha o periodo, agrégalo (ej. "Catálogo 2026").</li>
               <li>Verifica que alguien de otra área podría entender de qué se trata.</li>
             </ol>
+            <p className="text-xs text-moss-700 mt-2">✅ "Catálogo de libros 2026" — corto, específico, con fecha.</p>
+            <p className="text-xs text-terracotta-600">❌ "Cosas de la biblioteca que hay que hacer este semestre y el próximo" — demasiado largo.</p>
+            <p className="text-xs text-terracotta-600">❌ "Doc1" — no dice nada.</p>
           </div>
         </div>
       )}
@@ -512,25 +574,88 @@ export function WizardCrearTrabajo() {
             </Button>
 
             <div className="mt-5 pb-4" style={{ borderBottom: `4px solid ${COLORES_UI.pasoClaveBorde}` }}>
-              <Label>
-                🏁 Escribe aquí DÓNDE planeas guardar tu carpeta principal (ej. "Documentos/Trabajos-2025/{codigoEsencial || "CODIGO"}/" o
-                "Archivero-3/Carpeta-42/")
-              </Label>
-              <Input
-                value={descripcionUbicacion}
-                onChange={(e) => setDescripcionUbicacion(e.target.value)}
-                placeholder="Ej. Documentos/Trabajos-2025/BIBLIO-PROY-CATALOGO/"
-              />
-              <label className="flex items-start gap-2 text-sm text-ink-soft mt-3">
-                <input type="checkbox" className="mt-0.5" checked={estructuraCreada} onChange={(e) => setEstructuraCreada(e.target.checked)} />
-                Ya creé mi carpeta y organización.
-              </label>
-              {!estructuraCreada && (
-                <p className="text-xs mt-1" style={{ color: COLORES_UI.pasoClaveBorde }}>
-                  Marca la casilla cuando hayas creado tu estructura de carpetas. Este paso es importante para que tu
-                  trabajo quede bien documentado.
-                </p>
+              <p className="text-sm font-medium text-ink mb-2">🏁 ¿En qué momento estás?</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                <button
+                  type="button"
+                  onClick={() => setModoUbicacion("YA_CREADA")}
+                  className={`text-left rounded-md border p-3 transition-colors ${
+                    modoUbicacion === "YA_CREADA" ? "border-moss-500 bg-moss-50" : "border-line bg-white hover:border-moss-300"
+                  }`}
+                >
+                  <p className="text-sm font-medium text-ink">✅ Ya la creé</p>
+                  <p className="text-xs text-ink-soft mt-0.5">Ya tengo mi carpeta lista — solo quiero anotar dónde quedó.</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModoUbicacion("POR_PLANEAR")}
+                  className={`text-left rounded-md border p-3 transition-colors ${
+                    modoUbicacion === "POR_PLANEAR" ? "border-kaki-400 bg-kaki-50" : "border-line bg-white hover:border-kaki-300"
+                  }`}
+                >
+                  <p className="text-sm font-medium text-ink">🗒️ Todavía no — hay que planearla</p>
+                  <p className="text-xs text-ink-soft mt-0.5">Aún no la he creado; necesito decidir dónde va a vivir.</p>
+                </button>
+              </div>
+
+              {modoUbicacion === "YA_CREADA" ? (
+                <div className="bg-white border-2 border-moss-400 shadow-sm rounded-md p-3 mb-3">
+                  <Label>¿Dónde quedó guardada tu carpeta principal?</Label>
+                  <Input
+                    value={descripcionUbicacion}
+                    onChange={(e) => setDescripcionUbicacion(e.target.value)}
+                    placeholder="Ej. Documentos/Trabajos-2025/BIBLIO-PROY-CATALOGO/"
+                  />
+                </div>
+              ) : (
+                <div className="bg-white border-2 border-kaki-400 shadow-sm rounded-md p-3 mb-3 space-y-2">
+                  <Label>Elige dónde planeas guardarla y anótalo aquí</Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => setDescripcionUbicacion(`Documentos/Trabajos-2026/${codigoEsencial || "CODIGO"}/`)}
+                      className="text-left border border-line rounded p-2 hover:border-kaki-300"
+                    >
+                      <p className="font-semibold text-ink">💻 En mi computadora</p>
+                      <p className="font-mono text-ink-faint mt-0.5">Documentos/Trabajos-2026/{codigoEsencial || "CODIGO"}/</p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDescripcionUbicacion(`Mi unidad/Trabajos 2026/${codigoEsencial || "CODIGO"}`)}
+                      className="text-left border border-line rounded p-2 hover:border-kaki-300"
+                    >
+                      <p className="font-semibold text-ink">☁️ En la nube</p>
+                      <p className="font-mono text-ink-faint mt-0.5">Mi unidad/Trabajos 2026/{codigoEsencial || "CODIGO"}</p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDescripcionUbicacion(`Archivero 3, cajón 2, carpeta ${codigoEsencial || "CODIGO"}`)}
+                      className="text-left border border-line rounded p-2 hover:border-kaki-300"
+                    >
+                      <p className="font-semibold text-ink">🗄️ Físico</p>
+                      <p className="font-mono text-ink-faint mt-0.5">Archivero 3, cajón 2, carpeta {codigoEsencial || "CODIGO"}</p>
+                    </button>
+                  </div>
+                  <Input
+                    value={descripcionUbicacion}
+                    onChange={(e) => setDescripcionUbicacion(e.target.value)}
+                    placeholder="O escribe tu propio plan aquí..."
+                  />
+                </div>
               )}
+
+              <div className="bg-white border-2 border-ink-faint/60 shadow-sm rounded-md p-3">
+                <label className="flex items-start gap-2 text-sm text-ink font-medium cursor-pointer">
+                  <input type="checkbox" className="mt-0.5" checked={estructuraCreada} onChange={(e) => setEstructuraCreada(e.target.checked)} />
+                  Ya creé mi carpeta y organización.
+                </label>
+                {!estructuraCreada && (
+                  <p className="text-xs mt-1" style={{ color: COLORES_UI.pasoClaveBorde }}>
+                    Marca la casilla cuando hayas creado tu estructura de carpetas. Este paso es importante para que
+                    tu trabajo quede bien documentado.
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -544,7 +669,7 @@ export function WizardCrearTrabajo() {
             trabajo.
           </InfoBox>
 
-          <div className="bg-white rounded-md border border-line p-3">
+          <div className="bg-white/40 rounded-md border border-dashed border-ink-faint/50 p-3">
             <p className="text-xs text-ink-faint uppercase tracking-wide mb-1">Tu código actual</p>
             <p className="text-lg font-mono font-semibold text-ink">{codigoEsencial || "—"}</p>
           </div>
@@ -559,7 +684,12 @@ export function WizardCrearTrabajo() {
                 ["REGION", "Red regional / consorcio (prefijo de región)"],
               ] as [NivelAlcance, string][]
             ).map(([valor, etiqueta]) => (
-              <label key={valor} className="flex items-center gap-2 text-sm text-ink-soft bg-white border border-line rounded-md p-2.5">
+              <label
+                key={valor}
+                className={`flex items-center gap-2 text-sm bg-white border-2 shadow-sm rounded-md p-2.5 cursor-pointer transition-colors ${
+                  nivelAlcance === valor ? "border-moss-500 text-ink" : "border-ink-faint/40 text-ink-soft"
+                }`}
+              >
                 <input type="radio" name="nivelAlcance" checked={nivelAlcance === valor} onChange={() => setNivelAlcance(valor)} />
                 {etiqueta}
               </label>
@@ -579,7 +709,7 @@ export function WizardCrearTrabajo() {
             </div>
           )}
 
-          <div className="bg-white rounded-md border border-line p-3">
+          <div className="bg-white/40 rounded-md border border-dashed border-ink-faint/50 p-3">
             <p className="text-xs text-ink-faint uppercase tracking-wide mb-1">Código según el alcance elegido</p>
             <p className="text-lg font-mono font-semibold text-ink">{codigoSegunAlcance || "— completa los prefijos arriba"}</p>
           </div>
@@ -601,7 +731,7 @@ export function WizardCrearTrabajo() {
             <ResumenCampo etiqueta="Clave" valor={claveInput} onEditar={() => setPaso(2)} />
           </div>
 
-          <div className="border border-line rounded-md p-3 bg-white">
+          <div className="border border-dashed border-ink-faint/50 rounded-md p-3 bg-white/40">
             <div className="flex justify-between items-center mb-2">
               <p className="text-xs font-semibold text-ink-soft">Trazabilidad y ubicación</p>
               <button className="text-xs text-moss-600 hover:underline" onClick={() => setPaso(3)}>
@@ -614,7 +744,7 @@ export function WizardCrearTrabajo() {
             <p className="text-xs text-ink-soft mt-1">{descripcionUbicacion || "sin descripción de ubicación"}</p>
           </div>
 
-          <div className="border border-line rounded-md p-3 bg-white">
+          <div className="border border-dashed border-ink-faint/50 rounded-md p-3 bg-white/40">
             <div className="flex justify-between items-center mb-2">
               <p className="text-xs font-semibold text-ink-soft">Escalabilidad</p>
               <button className="text-xs text-moss-600 hover:underline" onClick={() => setPaso(4)}>
@@ -654,7 +784,7 @@ export function WizardCrearTrabajo() {
 
 function PasoGuia({ letra, titulo, children }: { letra: string; titulo: string; children: ReactNode }) {
   return (
-    <div className="bg-white/60 border border-line rounded-md p-3">
+    <div className="bg-white/40 border border-dashed border-ink-faint/50 rounded-md p-3">
       <p className="text-xs font-semibold text-ink mb-1.5">
         Paso {letra} — {titulo}
       </p>
@@ -665,7 +795,7 @@ function PasoGuia({ letra, titulo, children }: { letra: string; titulo: string; 
 
 function ResumenCampo({ etiqueta, valor, onEditar }: { etiqueta: string; valor: string; onEditar: () => void }) {
   return (
-    <div className="border border-line rounded-md p-3 bg-white">
+    <div className="border border-dashed border-ink-faint/50 rounded-md p-3 bg-white/40">
       <div className="flex justify-between items-center mb-1">
         <p className="text-xs font-semibold text-ink-faint">{etiqueta}</p>
         <button className="text-xs text-moss-600 hover:underline" onClick={onEditar}>

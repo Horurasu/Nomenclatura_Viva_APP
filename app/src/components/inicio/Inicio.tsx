@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useAppStore } from "../../store/useAppStore";
 import { Button, Card, SectionTitle } from "../ui/Primitives";
 
@@ -27,6 +28,7 @@ const GUIA_SECCIONES = [
 export function Inicio() {
   const irA = useAppStore((s) => s.irA);
   const totalTrabajos = useAppStore((s) => s.trabajos.length);
+  const [mostrarGuia, setMostrarGuia] = useState(false);
 
   return (
     <div className="space-y-6">
@@ -43,19 +45,30 @@ export function Inicio() {
         <Button onClick={() => irA("NUEVO_TRABAJO")}>+ Crear nuevo trabajo</Button>
       </Card>
 
-      <div>
-        <p className="text-xs font-medium uppercase tracking-wider text-ink-faint mb-3">¿Qué hace cada sección?</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {GUIA_SECCIONES.map((s) => (
-            <div key={s.nombre} className="flex items-start gap-3 border border-line rounded-md p-3.5 bg-surface">
-              <span className="text-xl leading-none opacity-80">{s.icono}</span>
-              <div>
-                <p className="text-sm font-medium text-ink">{s.nombre}</p>
-                <p className="text-xs text-ink-soft mt-0.5 leading-relaxed">{s.texto}</p>
+      <div className="border border-dashed border-ai-300 bg-ai-50 rounded-md">
+        <button
+          onClick={() => setMostrarGuia((v) => !v)}
+          className="w-full flex items-center justify-between gap-2 px-4 py-3 text-left"
+        >
+          <span className="text-sm text-ai-700">
+            💡 <strong className="font-medium">Guía de ayuda</strong> — ¿qué hace cada sección? (opcional, no hace
+            falta revisarla cada vez)
+          </span>
+          <span className="text-ai-600 text-xs shrink-0">{mostrarGuia ? "▾ ocultar" : "▸ ver"}</span>
+        </button>
+        {mostrarGuia && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 px-4 pb-4">
+            {GUIA_SECCIONES.map((s) => (
+              <div key={s.nombre} className="flex items-start gap-3 border border-ai-200 rounded-md p-3.5 bg-white">
+                <span className="text-xl leading-none opacity-80">{s.icono}</span>
+                <div>
+                  <p className="text-sm font-medium text-ink">{s.nombre}</p>
+                  <p className="text-xs text-ink-soft mt-0.5 leading-relaxed">{s.texto}</p>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <button className="text-sm text-ink-soft hover:text-ink hover:underline" onClick={() => irA("TABLERO")}>

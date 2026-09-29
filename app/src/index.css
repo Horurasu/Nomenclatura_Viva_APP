@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 body {
-  background-color: #f8fafc;
+  background-color: #e7ebf0;
   @apply text-ink;
 }
 

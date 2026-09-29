@@ -21,6 +21,32 @@ export const CATEGORIAS_SEED: CategoriaSeed[] = [
   { codigo: "APOYO", nombre: "Apoyo a áreas", deDondeViene: "Solicitud de otra área", aDondeVa: "Servicio o insumo entregado" },
 ];
 
+// Icono consistente por categoría (mismo código de fábrica → mismo icono), solo para
+// reforzar visualmente el paso "Categoría" del asistente.
+export const CATEGORIA_ICONOS: Record<string, string> = {
+  PROY: "🚀",
+  CONV: "🤝",
+  COLAB: "🌐",
+  PROD: "📦",
+  DIVU: "📣",
+  ACAD: "🎓",
+  ADM: "🗂️",
+  APOYO: "🛠️",
+};
+
+// Ejemplos ilustrativos de áreas típicas en una institución educativa — solo para
+// ayudar a imaginar de dónde "salen" las áreas; no son obligatorios ni exhaustivos.
+export const EJEMPLOS_AREA = [
+  { icono: "📚", nombre: "Biblioteca" },
+  { icono: "💼", nombre: "Administración" },
+  { icono: "👥", nombre: "Recursos Humanos" },
+  { icono: "📢", nombre: "Comunicación" },
+  { icono: "🎓", nombre: "Servicios Escolares" },
+  { icono: "💻", nombre: "Tecnologías de Información" },
+  { icono: "🔬", nombre: "Investigación" },
+  { icono: "🤝", nombre: "Vinculación" },
+];
+
 export const SEMAFORO_INFO: Record<EstadoSemaforo, { emoji: string; etiqueta: string; bg: string; texto: string }> = {
   ROJO: { emoji: "🔴", etiqueta: "Por iniciar", bg: "#fee2e2", texto: "#991b1b" },
   AMBAR: { emoji: "🟡", etiqueta: "En curso", bg: "#fef3c7", texto: "#92400e" },
@@ -61,36 +87,44 @@ export interface FormatoClave {
   categoria: string;
   ejemplos: string[];
   formato: string;
+  comoSeConstruye: string;
   ejemploCompleto: string;
   etiquetaBoton: string;
 }
 
+// Importante: estos son EJEMPLOS de partida, no reglas fijas — cada quien los adapta a
+// su propio trabajo. El formato es una sugerencia para ordenar la idea, no un molde
+// obligatorio.
 export const GENERADOR_CLAVE: FormatoClave[] = [
   {
     categoria: "Eventos académicos",
-    ejemplos: ["CONGRESO", "JORNADA", "SEMINARIO", "TALLER", "WEBINAR"],
+    ejemplos: ["CONGRESO", "JORNADA", "SEMINARIO", "TALLER", "WEBINAR", "COLOQUIO"],
     formato: "[TIPO]-[AÑO]",
+    comoSeConstruye: "Empieza con el tipo de evento y agrega el año — así distingues ediciones futuras del mismo evento.",
     ejemploCompleto: "CONGRESO-2025",
     etiquetaBoton: "Usar formato para eventos",
   },
   {
     categoria: "Correos y comunicados",
-    ejemplos: ["CIRCULAR", "AVISO", "CONVOCATORIA", "INVITACION"],
+    ejemplos: ["CIRCULAR", "AVISO", "CONVOCATORIA", "INVITACION", "RECORDATORIO"],
     formato: "[TIPO]-[DESTINATARIO]",
+    comoSeConstruye: "Empieza con el tipo de comunicado y agrega a quién va dirigido — así sabes de qué trataba sin abrirlo.",
     ejemploCompleto: "CIRCULAR-DOCENTES",
     etiquetaBoton: "Usar formato para comunicados",
   },
   {
     categoria: "Documentos administrativos",
-    ejemplos: ["SOLICITUD", "REPORTE", "MEMORANDUM", "OFICIO"],
+    ejemplos: ["SOLICITUD", "REPORTE", "MEMORANDUM", "OFICIO", "ACTA"],
     formato: "[TIPO]-[AREA]",
+    comoSeConstruye: "Empieza con el tipo de documento y agrega el área a la que corresponde o involucra.",
     ejemploCompleto: "SOLICITUD-BIBLIO",
     etiquetaBoton: "Usar formato para administrativos",
   },
   {
     categoria: "Productos digitales",
-    ejemplos: ["VIDEO", "PODCAST", "ENTRADA-BLOG", "INFOGRAFIA"],
+    ejemplos: ["VIDEO", "PODCAST", "ENTRADA-BLOG", "INFOGRAFIA", "PRESENTACION"],
     formato: "[MEDIO]-[TEMA]",
+    comoSeConstruye: "Empieza con el tipo de medio y agrega el tema que trata — útil cuando produces varios del mismo tipo.",
     ejemploCompleto: "VIDEO-CATALOGO",
     etiquetaBoton: "Usar formato para digitales",
   },
@@ -98,6 +132,7 @@ export const GENERADOR_CLAVE: FormatoClave[] = [
     categoria: "Proyectos de área",
     ejemplos: ["CATALOGO", "MANUAL", "GUIA", "PLAN", "PROGRAMA"],
     formato: "[PRODUCTO]-[VERSION]",
+    comoSeConstruye: "Empieza con el nombre del producto y agrega su versión — así distingues borradores de la versión final.",
     ejemploCompleto: "MANUAL-v1",
     etiquetaBoton: "Usar formato para proyectos",
   },
@@ -105,6 +140,7 @@ export const GENERADOR_CLAVE: FormatoClave[] = [
     categoria: "Apoyo a otras áreas",
     ejemplos: ["SOPORTE-TI", "INSUMO-DISEÑO", "TICKET-MANTENIMIENTO"],
     formato: "[TIPO]-[AREA-DESTINO]",
+    comoSeConstruye: "Empieza con el tipo de apoyo que das y agrega a qué área se lo diste.",
     ejemploCompleto: "SOPORTE-ACAD",
     etiquetaBoton: "Usar formato para apoyos",
   },
