@@ -3,8 +3,7 @@
 @tailwind utilities;
 
 body {
-  background-color: #e7ebf0;
-  @apply text-ink;
+  @apply bg-app text-ink antialiased;
 }
 
 ::selection {

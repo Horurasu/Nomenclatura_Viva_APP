@@ -2,8 +2,7 @@ import { useState, type ChangeEvent } from "react";
 import { useAppStore } from "../../store/useAppStore";
 import { exportarExcel, exportarJSON, generarArchivoTrabajo, leerArchivoJSON } from "../../storage/exportImport";
 import type { ArchivoTrabajo } from "../../domain/types";
-import { COLORES_UI } from "../../domain/constants";
-import { Button, Card, InfoBox, Input, Label, SectionTitle } from "../ui/Primitives";
+import { Aviso, Ayuda, BotonApp, Campo, EncabezadoPantalla, Seccion, clasesBoton } from "../ui/Estilo";
 
 export function ExportarImportar() {
   const areas = useAppStore((s) => s.areas);
@@ -12,6 +11,8 @@ export function ExportarImportar() {
   const autorActivo = useAppStore((s) => s.autorActivo);
   const reemplazarTodo = useAppStore((s) => s.reemplazarTodo);
   const marcarExportado = useAppStore((s) => s.marcarExportado);
+  const cambiosSinExportar = useAppStore((s) => s.cambiosSinExportar);
+  const haExportadoAlgunaVez = useAppStore((s) => s.haExportadoAlgunaVez);
 
   const [institucion, setInstitucion] = useState("");
   const [departamento, setDepartamento] = useState("");
@@ -49,86 +50,108 @@ export function ExportarImportar() {
   }
 
   return (
-    <div
-      className="space-y-6 rounded-lg p-5"
-      style={{ backgroundColor: COLORES_UI.respaldo, border: `2px solid ${COLORES_UI.respaldoBorde}` }}
-    >
-      <div className="flex items-start gap-2 px-1">
-        <span className="text-lg">⚠️</span>
-        <p className="text-sm font-medium" style={{ color: COLORES_UI.respaldoBorde }}>
-          Esta acción es importante para no perder tu avance. Exporta tu configuración periódicamente.
-        </p>
-      </div>
+    <div className="w-full max-w-2xl mx-auto flex flex-col gap-5">
+      <EncabezadoPantalla
+        icono="💾"
+        color="ambar"
+        titulo="Respaldo"
+        subtitulo="Guarda una copia de tu información o carga una que ya tengas."
+      />
 
-      <Card className="border-l-2 border-l-ai-400">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-base">⬇</span>
-          <span className="text-xs font-medium uppercase tracking-wider text-ai-600">Exportar (descargar)</span>
-        </div>
-        <SectionTitle subtitle="Genera un archivo con todo tu trabajo actual para respaldarlo o compartirlo.">
-          Descargar mi nomenclatura
-        </SectionTitle>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-          <div>
-            <Label>Institución (opcional)</Label>
-            <Input value={institucion} onChange={(e) => setInstitucion(e.target.value)} placeholder="Ej. Universidad Marista de Querétaro" />
-          </div>
-          <div>
-            <Label>Departamento o área (opcional)</Label>
-            <Input value={departamento} onChange={(e) => setDepartamento(e.target.value)} placeholder="Ej. Biblioteca" />
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-3">
-          <Button
-            onClick={() => {
-              exportarJSON(construirArchivo());
-              marcarExportado();
-            }}
-          >
-            Descargar JSON (respaldo completo)
-          </Button>
-          <Button variant="secondary" onClick={() => exportarExcel(construirArchivo())}>
-            Descargar Excel (para leer)
-          </Button>
-        </div>
-        <p className="text-xs text-ink-faint mt-3 leading-relaxed">
-          El JSON es el que debes guardar y volver a cargar aquí después; el Excel es solo para leer o compartir.
-          Esto respalda la <strong>configuración de tus trabajos</strong> (códigos, trazabilidad, áreas y
-          categorías) — no tus archivos ni correos reales, esos siguen donde ya los tienes.
-        </p>
-      </Card>
+      {/* Estado del respaldo */}
+      {trabajos.length > 0 && cambiosSinExportar ? (
+        <Aviso tono="cuidado" icono="⚠️">
+          <strong>Tienes cambios sin respaldar.</strong> Descarga una copia para no perderlos si se borra el navegador.
+        </Aviso>
+      ) : haExportadoAlgunaVez ? (
+        <Aviso tono="exito" icono="✅">
+          <strong>Todo está respaldado.</strong> No hay cambios nuevos desde tu última copia.
+        </Aviso>
+      ) : null}
 
-      <Card className="border-l-2 border-l-kaki-400">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-base">⬆</span>
-          <span className="text-xs font-medium uppercase tracking-wider text-kaki-600">Importar (cargar)</span>
-        </div>
-        <SectionTitle subtitle="Carga un archivo JSON que hayas descargado antes de esta misma app.">Cargar mi nomenclatura</SectionTitle>
-        <InfoBox tono="warning">
-          Al importar, se reemplaza todo lo que tienes guardado en este navegador por el contenido del archivo. Si
-          quieres conservar lo que tienes ahora, descárgalo primero (arriba).
-        </InfoBox>
-        <div className="mt-4">
-          <input type="file" accept="application/json" onChange={manejarSeleccionArchivo} className="text-sm text-ink-soft" />
-        </div>
-        {error && <p className="text-sm text-terracotta-600 mt-2">{error}</p>}
-        {pendiente && (
-          <div className="mt-4 border border-line rounded-md p-4 bg-white">
-            <p className="text-sm text-ink-soft leading-relaxed">
-              Este archivo tiene <strong className="text-ink">{pendiente.trabajos.length}</strong> trabajos,{" "}
-              <strong className="text-ink">{pendiente.areas.length}</strong> áreas y{" "}
-              <strong className="text-ink">{pendiente.categorias.length}</strong> categorías, exportado el{" "}
-              {new Date(pendiente.metadata.fechaExportacion).toLocaleString("es-MX")} por {pendiente.metadata.autorPrincipal}.
+      {/* Descargar */}
+      <Seccion icono="⬇️" titulo="Guardar una copia" subtitulo="Descarga un archivo con todos tus trabajos, áreas y tipos.">
+        <BotonApp
+          color="ambar"
+          tamano="lg"
+          className="w-full"
+          onClick={() => {
+            exportarJSON(construirArchivo());
+            marcarExportado();
+          }}
+        >
+          ⬇️ Descargar mi copia de seguridad
+        </BotonApp>
+        <BotonApp color="blanco" className="w-full" onClick={() => exportarExcel(construirArchivo())}>
+          📊 Descargar en Excel (solo para leer)
+        </BotonApp>
+        <div className="flex flex-wrap gap-2">
+          <Ayuda titulo="Agregar datos de tu institución (opcional)" icono="🏛️">
+            <Campo etiqueta="Institución" value={institucion} onChange={(e) => setInstitucion(e.target.value)} placeholder="Ej. Universidad Marista de Querétaro" />
+            <Campo etiqueta="Departamento o área" value={departamento} onChange={(e) => setDepartamento(e.target.value)} placeholder="Ej. Biblioteca" />
+          </Ayuda>
+          <Ayuda titulo="¿Qué se guarda?">
+            <p>
+              Se guarda la <strong>información de tus trabajos</strong>: códigos, recorrido, áreas y tipos. Tus archivos
+              y correos reales no se incluyen; siguen donde ya los tienes.
             </p>
-            <div className="flex gap-2 mt-3">
-              <Button onClick={confirmarImportacion}>Sí, reemplazar con este archivo</Button>
-              <Button variant="ghost" onClick={() => setPendiente(null)}>
+            <p>
+              Guarda la <strong>copia de seguridad</strong> en un lugar seguro: es la que puedes volver a cargar aquí. El
+              Excel sirve solo para leer o compartir.
+            </p>
+          </Ayuda>
+        </div>
+      </Seccion>
+
+      {/* Cargar */}
+      <Seccion icono="⬆️" titulo="Cargar una copia" subtitulo="Usa un archivo que hayas descargado antes de esta app.">
+        <Aviso tono="cuidado" icono="⚠️">
+          Al cargar una copia, <strong>se reemplaza todo</strong> lo que tienes ahora. Si quieres conservarlo, descárgalo
+          primero.
+        </Aviso>
+
+        {!pendiente ? (
+          <label className={`${clasesBoton("blanco", "lg")} w-full cursor-pointer`}>
+            📂 Elegir archivo de respaldo
+            <input type="file" accept="application/json" onChange={manejarSeleccionArchivo} className="sr-only" />
+          </label>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-sm font-semibold text-ink">Este archivo contiene:</p>
+            <div className="grid grid-cols-3 gap-2">
+              <Dato numero={pendiente.trabajos.length} etiqueta="trabajos" />
+              <Dato numero={pendiente.areas.length} etiqueta="áreas" />
+              <Dato numero={pendiente.categorias.length} etiqueta="tipos" />
+            </div>
+            <p className="text-xs text-ink-soft">
+              Guardado el {new Date(pendiente.metadata.fechaExportacion).toLocaleString("es-MX")} por {pendiente.metadata.autorPrincipal}.
+            </p>
+            <div className="flex gap-2">
+              <BotonApp color="ambar" className="flex-1" onClick={confirmarImportacion}>
+                Sí, reemplazar todo
+              </BotonApp>
+              <BotonApp color="blanco" onClick={() => setPendiente(null)}>
                 Cancelar
-              </Button>
+              </BotonApp>
             </div>
           </div>
         )}
-      </Card>
+
+        {error && (
+          <Aviso tono="peligro" icono="❌">
+            {error}
+          </Aviso>
+        )}
+      </Seccion>
+    </div>
+  );
+}
+
+function Dato({ numero, etiqueta }: { numero: number; etiqueta: string }) {
+  return (
+    <div className="rounded-xl bg-app px-3 py-3 text-center">
+      <p className="text-2xl font-bold text-ink leading-none">{numero}</p>
+      <p className="text-xs text-ink-soft mt-1">{etiqueta}</p>
     </div>
   );
 }

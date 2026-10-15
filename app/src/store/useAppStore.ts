@@ -11,6 +11,9 @@ interface AppState {
   trabajoSeleccionadoId: string | null;
   ultimoTrabajoCreadoId: string | null;
   autorActivo: string;
+  // Sin nombre no se puede entrar a ninguna sección: irA() se detiene y sube este
+  // contador para que el campo de nombre de arriba te lo pida.
+  solicitudNombre: number;
   areas: Area[];
   categorias: Categoria[];
   trabajos: Trabajo[];
@@ -49,12 +52,20 @@ interface AppState {
   reemplazarTodo: (archivo: ArchivoTrabajo) => Promise<void>;
 }
 
+// Solo en desarrollo: abrir la app con "?sin-nombre" en la URL borra el nombre guardado,
+// para probar el flujo de "primera vez" sin abrir la consola del navegador.
+if (import.meta.env.DEV && new URLSearchParams(window.location.search).has("sin-nombre")) {
+  localStorage.removeItem("nv_autorActivo");
+  window.history.replaceState(null, "", window.location.pathname);
+}
+
 export const useAppStore = create<AppState>((set, get) => ({
   cargando: true,
   vista: "INICIO",
   trabajoSeleccionadoId: null,
   ultimoTrabajoCreadoId: null,
   autorActivo: localStorage.getItem("nv_autorActivo") ?? "",
+  solicitudNombre: 0,
   areas: [],
   categorias: [],
   trabajos: [],
@@ -108,8 +119,15 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ areas, categorias: categoriasFinal, trabajos, cargando: false });
   },
 
-  irA: (vista, trabajoId) => set({ vista, trabajoSeleccionadoId: trabajoId ?? null }),
+  irA: (vista, trabajoId) => {
+    if (vista !== "INICIO" && !get().autorActivo.trim()) {
+      set({ solicitudNombre: get().solicitudNombre + 1 });
+      return;
+    }
+    set({ vista, trabajoSeleccionadoId: trabajoId ?? null });
+  },
 
+  // Guardar el nombre no cambia de sección: te deja donde estás.
   setAutorActivo: (nombre) => {
     localStorage.setItem("nv_autorActivo", nombre);
     set({ autorActivo: nombre });

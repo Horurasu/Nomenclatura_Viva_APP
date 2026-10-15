@@ -3,10 +3,24 @@ export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
+      // Sacudida corta para llamar la atención sobre un campo obligatorio (p. ej. el nombre).
+      keyframes: {
+        sacudir: {
+          "0%, 100%": { transform: "translateX(0)" },
+          "20%, 60%": { transform: "translateX(-6px)" },
+          "40%, 80%": { transform: "translateX(6px)" },
+        },
+      },
+      animation: {
+        sacudir: "sacudir 0.4s ease-in-out",
+      },
       colors: {
         // Paleta cálida y apagada (estilo minimalista), en vez de los colores
         // saturados de "app de startup" (emerald/blue/amber/violet puros).
         paper: "#f7f5f0",
+        // Fondo único de la app: la barra superior y el fondo comparten este color para
+        // que los bloques blancos del centro sean lo único que resalte.
+        app: "#eeece5",
         surface: "#fdfcfa",
         ink: {
           DEFAULT: "#2b2b28",

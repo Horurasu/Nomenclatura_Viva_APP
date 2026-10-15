@@ -1,12 +1,18 @@
 import { useState } from "react";
 import { useAppStore } from "../../store/useAppStore";
-import { asuntoCorreoSugerido, codigoEsencialDeTrabajo, colorParaCategoria } from "../../domain/codigo";
-import { LIMITE_CLAVE, UBICACION_AYUDA } from "../../domain/constants";
+import { asuntoCorreoSugerido, codigoEsencialDeTrabajo } from "../../domain/codigo";
+import { CATEGORIA_ICONOS, LIMITE_CLAVE, SEMAFORO_INFO, UBICACION_AYUDA, UBICACION_INFO } from "../../domain/constants";
 import type { EstadoSemaforo } from "../../domain/types";
-import { Button, Card, InfoBox, Input, Label, SectionTitle, Select } from "../ui/Primitives";
+import { Ayuda, BotonApp, Campo, Opcion, Seccion, Selector, clasesBoton } from "../ui/Estilo";
 import { SemaforoBadge } from "../dashboard/SemaforoBadge";
 import { UbicacionSelector } from "../ui/UbicacionSelector";
 import { EscalabilidadView } from "./EscalabilidadView";
+
+const ESTADOS: { estado: EstadoSemaforo; texto: string }[] = [
+  { estado: "ROJO", texto: "Todavía no empieza" },
+  { estado: "AMBAR", texto: "Se está trabajando" },
+  { estado: "VERDE", texto: "Ya se terminó" },
+];
 
 export function FichaDetalle() {
   const trabajoSeleccionadoId = useAppStore((s) => s.trabajoSeleccionadoId);
@@ -21,16 +27,18 @@ export function FichaDetalle() {
   const trabajo = trabajos.find((t) => t.id === trabajoSeleccionadoId);
   const [notaCambio, setNotaCambio] = useState("");
 
+  const volver = (
+    <BotonApp color="blanco" tamano="sm" onClick={() => irA("TABLERO")} className="self-start">
+      ← Mis trabajos
+    </BotonApp>
+  );
+
   if (!trabajo) {
     return (
-      <Card>
-        <p className="text-sm text-ink-soft">
-          No se encontró el trabajo.{" "}
-          <button className="text-moss-600 underline" onClick={() => irA("TABLERO")}>
-            Volver al tablero
-          </button>
-        </p>
-      </Card>
+      <div className="w-full max-w-3xl mx-auto flex flex-col gap-5">
+        {volver}
+        <div className="rounded-2xl bg-white border border-line px-6 py-10 text-center text-sm text-ink-soft">No se encontró este trabajo.</div>
+      </div>
     );
   }
 
@@ -41,205 +49,174 @@ export function FichaDetalle() {
   const asunto = asuntoCorreoSugerido(trabajo);
 
   const cambiar = async (estado: EstadoSemaforo) => {
+    if (estado === trabajo.ficha.estadoActual) return;
     await cambiarEstado(trabajo.id, estado, notaCambio || undefined);
     setNotaCambio("");
   };
 
   const manejarEliminar = async () => {
-    if (window.confirm(`¿Eliminar el trabajo "${codigoEsencial}"? Esta acción no se puede deshacer.`)) {
+    if (window.confirm(`¿Eliminar el trabajo "${trabajo.clave}"? Esta acción no se puede deshacer.`)) {
       await eliminarTrabajo(trabajo.id);
       irA("TABLERO");
     }
   };
 
   return (
-    <div className="space-y-6">
-      <p className="text-xs text-ink-faint">
-        <button className="hover:underline" onClick={() => irA("INICIO")}>
-          Inicio
-        </button>{" "}
-        /{" "}
-        <button className="hover:underline" onClick={() => irA("TABLERO")}>
-          Tablero
-        </button>{" "}
-        / {codigoEsencial}
-      </p>
+    <div className="w-full max-w-3xl mx-auto flex flex-col gap-5">
+      {volver}
 
-      <Card>
-        <div className="flex items-start justify-between flex-wrap gap-3">
-          <div>
-            <span className="inline-block text-[10px] font-semibold uppercase tracking-wide text-moss-700 bg-moss-50 rounded px-1.5 py-0.5 mb-1">
-              Trabajo activo
+      {/* Identificación del trabajo (informativo, plano) */}
+      <div className="flex items-start gap-3">
+        <span aria-hidden="true" className="shrink-0 w-14 h-14 rounded-full bg-sky-100 flex items-center justify-center text-3xl">
+          {CATEGORIA_ICONOS[trabajo.categoria] ?? "🏷️"}
+        </span>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-ink leading-tight break-words">{trabajo.clave}</h1>
+          <p className="font-mono text-sm text-ink-soft break-all mt-0.5">{codigoEsencial}</p>
+          <div className="flex flex-wrap items-center gap-2 mt-2">
+            <SemaforoBadge estado={trabajo.ficha.estadoActual} />
+            <span className="text-xs text-ink-faint">
+              {categoriaActual?.nombre ?? trabajo.categoria} · Creado el {new Date(trabajo.fechaCreacion).toLocaleDateString("es-MX")} por{" "}
+              {trabajo.autorCreacion}
             </span>
-            <p className="text-xs text-ink-faint font-mono">{codigoEsencial}</p>
-            <h2 className="text-xl font-semibold text-ink">{trabajo.clave}</h2>
-            <div className="flex items-center gap-2 mt-1">
-              {categoriaActual && (
-                <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${colorParaCategoria(categoriaActual.codigo)}`}>
-                  {categoriaActual.nombre}
-                </span>
-              )}
-              <span className="text-[11px] text-ink-faint">
-                Creado el {new Date(trabajo.fechaCreacion).toLocaleDateString("es-MX")} por {trabajo.autorCreacion}
-              </span>
-            </div>
-          </div>
-          <SemaforoBadge estado={trabajo.ficha.estadoActual} />
-        </div>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Input
-            placeholder="Nota del cambio de estado (opcional)"
-            value={notaCambio}
-            onChange={(e) => setNotaCambio(e.target.value)}
-            className="flex-1 min-w-[200px]"
-          />
-          <Button variant="danger" onClick={() => cambiar("ROJO")}>
-            🔴 Por iniciar
-          </Button>
-          <Button variant="secondary" onClick={() => cambiar("AMBAR")}>
-            🟡 En curso
-          </Button>
-          <Button onClick={() => cambiar("VERDE")}>🟢 Concluido</Button>
-        </div>
-      </Card>
-
-      <Card>
-        <SectionTitle subtitle="Si cambias el área, categoría o clave, el código se vuelve a armar solo.">Identidad del trabajo</SectionTitle>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <Label>Área</Label>
-            <Select value={trabajo.areaCodigo} onChange={(e) => actualizarTrabajo(trabajo.id, { areaCodigo: e.target.value })}>
-              {areas.map((a) => (
-                <option key={a.id} value={a.codigo}>
-                  {a.nombre} ({a.codigo})
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <Label>Categoría</Label>
-            <Select value={trabajo.categoria} onChange={(e) => actualizarTrabajo(trabajo.id, { categoria: e.target.value })}>
-              {categorias.map((c) => (
-                <option key={c.id} value={c.codigo}>
-                  {c.nombre} ({c.codigo})
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <Label>Clave</Label>
-            <Input
-              value={trabajo.clave}
-              maxLength={LIMITE_CLAVE}
-              onChange={(e) => actualizarTrabajo(trabajo.id, { clave: e.target.value })}
-            />
           </div>
         </div>
-      </Card>
+      </div>
 
-      <Card>
-        <SectionTitle>¿Cómo fluye este trabajo?</SectionTitle>
+      {/* Estado */}
+      <Seccion icono="🚦" titulo="¿Cómo va este trabajo?" subtitulo="Toca el estado para cambiarlo.">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="border border-line rounded-md p-3">
-            <Label>📥 De dónde viene (origen)</Label>
-            <Input
-              value={trabajo.ficha.origen}
-              onChange={(e) => actualizarTrabajo(trabajo.id, { ficha: { ...trabajo.ficha, origen: e.target.value } })}
+          {ESTADOS.map(({ estado, texto }) => (
+            <Opcion
+              key={estado}
+              icono={SEMAFORO_INFO[estado].emoji}
+              titulo={SEMAFORO_INFO[estado].etiqueta}
+              texto={texto}
+              seleccionada={trabajo.ficha.estadoActual === estado}
+              onClick={() => cambiar(estado)}
             />
-          </div>
-          <div className="border border-line rounded-md p-3">
-            <Label>⚙️ Acción</Label>
-            <Input
-              value={trabajo.ficha.accion}
-              onChange={(e) => actualizarTrabajo(trabajo.id, { ficha: { ...trabajo.ficha, accion: e.target.value } })}
-            />
-          </div>
-          <div className="border border-line rounded-md p-3">
-            <Label>📤 A dónde va (destino)</Label>
-            <Input
-              value={trabajo.ficha.destino}
-              onChange={(e) => actualizarTrabajo(trabajo.id, { ficha: { ...trabajo.ficha, destino: e.target.value } })}
-            />
-          </div>
+          ))}
         </div>
-      </Card>
+        <Campo
+          etiqueta="Nota para el cambio (opcional)"
+          placeholder="Ej. Ya se entregó el primer borrador"
+          value={notaCambio}
+          onChange={(e) => setNotaCambio(e.target.value)}
+          pista="Se guarda junto con el siguiente cambio de estado."
+        />
+      </Seccion>
 
-      <Card>
-        <SectionTitle>¿Dónde está el documento real?</SectionTitle>
+      {/* Datos principales */}
+      <Seccion icono="✏️" titulo="Datos del trabajo" subtitulo="Si los cambias, el código se actualiza solo.">
+        <Campo
+          etiqueta="Nombre"
+          value={trabajo.clave}
+          maxLength={LIMITE_CLAVE}
+          onChange={(e) => actualizarTrabajo(trabajo.id, { clave: e.target.value })}
+        />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Selector etiqueta="Área" value={trabajo.areaCodigo} onChange={(e) => actualizarTrabajo(trabajo.id, { areaCodigo: e.target.value })}>
+            {areas.map((a) => (
+              <option key={a.id} value={a.codigo}>
+                {a.nombre}
+              </option>
+            ))}
+          </Selector>
+          <Selector etiqueta="Tipo de trabajo" value={trabajo.categoria} onChange={(e) => actualizarTrabajo(trabajo.id, { categoria: e.target.value })}>
+            {categorias.map((c) => (
+              <option key={c.id} value={c.codigo}>
+                {c.nombre}
+              </option>
+            ))}
+          </Selector>
+        </div>
+      </Seccion>
+
+      {/* Recorrido */}
+      <Seccion icono="🧭" titulo="Recorrido" subtitulo="De dónde viene, qué se hace y qué se entrega.">
+        <Campo
+          etiqueta="📥 ¿De dónde viene?"
+          value={trabajo.ficha.origen}
+          onChange={(e) => actualizarTrabajo(trabajo.id, { ficha: { ...trabajo.ficha, origen: e.target.value } })}
+        />
+        <Campo
+          etiqueta="⚙️ ¿Qué se hace?"
+          value={trabajo.ficha.accion}
+          onChange={(e) => actualizarTrabajo(trabajo.id, { ficha: { ...trabajo.ficha, accion: e.target.value } })}
+        />
+        <Campo
+          etiqueta="📤 ¿Qué se entrega?"
+          value={trabajo.ficha.destino}
+          onChange={(e) => actualizarTrabajo(trabajo.id, { ficha: { ...trabajo.ficha, destino: e.target.value } })}
+        />
+      </Seccion>
+
+      {/* Archivos */}
+      <Seccion icono="📁" titulo="¿Dónde están los archivos?" subtitulo="La app no guarda tus archivos: solo anota dónde están.">
         <UbicacionSelector
           value={trabajo.ubicacion.tipo}
           onChange={(tipo) => actualizarTrabajo(trabajo.id, { ubicacion: { ...trabajo.ubicacion, tipo } })}
         />
-        <div className="mt-3">
-          <Label>Descripción</Label>
-          <Input
-            value={trabajo.ubicacion.descripcion}
-            onChange={(e) => actualizarTrabajo(trabajo.id, { ubicacion: { ...trabajo.ubicacion, descripcion: e.target.value } })}
-          />
+        <Campo
+          etiqueta="¿En qué carpeta o lugar exacto?"
+          placeholder={`Ej. Documentos/Trabajos-2026/${codigoEsencial}/`}
+          value={trabajo.ubicacion.descripcion}
+          onChange={(e) => actualizarTrabajo(trabajo.id, { ubicacion: { ...trabajo.ubicacion, descripcion: e.target.value } })}
+        />
+        <Ayuda titulo={`Cómo organizarlo en “${UBICACION_INFO[trabajo.ubicacion.tipo].etiqueta}”`}>
+          <p>{UBICACION_AYUDA[trabajo.ubicacion.tipo](codigoEsencial, trabajo.areaCodigo, trabajo.categoria)}</p>
+        </Ayuda>
+      </Seccion>
+
+      {/* Opciones menos usadas: plegadas */}
+      <Seccion plegable icono="✉️" titulo="Escribir un correo sobre este trabajo" subtitulo="Con el asunto listo para encontrarlo después.">
+        <div>
+          <p className="text-sm font-semibold text-ink mb-1.5">Asunto sugerido</p>
+          <p className="font-mono text-sm bg-app rounded-xl px-4 py-3 text-ink break-all">{asunto}</p>
         </div>
-        <div className="mt-3">
-          <InfoBox tono="warning">{UBICACION_AYUDA[trabajo.ubicacion.tipo](codigoEsencial, trabajo.areaCodigo, trabajo.categoria)}</InfoBox>
-        </div>
-        <p className="text-[11px] text-ink-faint mt-2">
-          Recuerda: este campo solo documenta dónde planeas guardarlo — la app no guarda el archivo ni el correo por ti.
+        <a href={`mailto:${correoContacto ?? ""}?subject=${encodeURIComponent(asunto)}`} className={clasesBoton("verde", "md")}>
+          ✉️ Abrir mi correo
+        </a>
+        <p className="text-xs text-ink-soft">
+          {correoContacto ? (
+            <>
+              Se enviará al contacto del área: <strong>{correoContacto}</strong>
+            </>
+          ) : (
+            "Esta área no tiene correo de contacto. Puedes agregarlo en Configuración."
+          )}
         </p>
-      </Card>
+      </Seccion>
 
-      <Card>
-        <SectionTitle subtitle="Usa este texto como asunto en tus correos sobre este trabajo, así cualquiera puede buscarlo y encontrar el hilo completo.">
-          Correo y trazabilidad
-        </SectionTitle>
-        <div className="space-y-2">
-          <div>
-            <Label>Asunto sugerido</Label>
-            <p className="font-mono text-sm bg-paper border border-line rounded-md px-3 py-2 text-ink">{asunto}</p>
-          </div>
-          {correoContacto && (
-            <p className="text-sm text-ink-soft">
-              Contacto del área: <a className="text-moss-600 underline" href={`mailto:${correoContacto}`}>{correoContacto}</a>
-            </p>
-          )}
-          <a
-            href={`mailto:${correoContacto ?? ""}?subject=${encodeURIComponent(asunto)}`}
-            className="inline-block px-4 py-2 rounded-md font-medium text-sm bg-moss-600 text-white hover:bg-moss-700 transition-colors"
-          >
-            ✉ Redactar correo sobre este trabajo
-          </a>
-          {!correoContacto && (
-            <p className="text-xs text-ink-faint">
-              El área no tiene correo de contacto configurado — agrégalo desde Configuración para que se rellene solo.
-            </p>
-          )}
-        </div>
-      </Card>
-
-      <Card>
-        <SectionTitle subtitle="El código crece hacia afuera sin tocar el núcleo.">Escalabilidad del código</SectionTitle>
+      <Seccion plegable icono="🌎" titulo="Compartir fuera de mi área" subtitulo="Ajusta el código si lo usan otras áreas o instituciones.">
         <EscalabilidadView trabajo={trabajo} />
-      </Card>
+      </Seccion>
 
-      <Card>
-        <SectionTitle>Historial de estados</SectionTitle>
-        <ul className="space-y-2">
+      <Seccion plegable icono="🕒" titulo="Historial de cambios" subtitulo={`${trabajo.ficha.historialEstados.length} registro(s)`}>
+        <ol className="space-y-3">
           {[...trabajo.ficha.historialEstados].reverse().map((c) => (
-            <li key={c.id} className="text-sm border-l-2 border-moss-400 pl-3">
-              <SemaforoBadge estado={c.estado} />
-              <span className="text-ink-faint ml-2">
-                {new Date(c.fecha).toLocaleString("es-MX")} · {c.autor}
-              </span>
-              {c.nota && <p className="text-ink-soft mt-0.5">{c.nota}</p>}
+            <li key={c.id} className="flex gap-3">
+              <span aria-hidden="true" className="shrink-0 w-2 rounded-full bg-sky-200" />
+              <div className="min-w-0">
+                <SemaforoBadge estado={c.estado} />
+                <p className="text-xs text-ink-faint mt-1">
+                  {new Date(c.fecha).toLocaleString("es-MX")} · {c.autor}
+                </p>
+                {c.nota && <p className="text-sm text-ink-soft mt-0.5">{c.nota}</p>}
+              </div>
             </li>
           ))}
-        </ul>
-      </Card>
+        </ol>
+      </Seccion>
 
-      <Card className="border-terracotta-200">
-        <SectionTitle subtitle="Esta acción no se puede deshacer.">Eliminar este trabajo</SectionTitle>
-        <Button variant="danger" onClick={manejarEliminar}>
-          Eliminar trabajo
-        </Button>
-      </Card>
+      <Seccion plegable icono="🗑️" titulo="Eliminar este trabajo" subtitulo="Esta acción no se puede deshacer.">
+        <p className="text-sm text-ink-soft">
+          Se borra el registro de este trabajo en la app. Tus archivos y correos reales no se tocan.
+        </p>
+        <BotonApp color="rojo" onClick={manejarEliminar}>
+          Sí, eliminar este trabajo
+        </BotonApp>
+      </Seccion>
     </div>
   );
 }

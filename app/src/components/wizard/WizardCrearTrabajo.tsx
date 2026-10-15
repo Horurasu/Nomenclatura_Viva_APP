@@ -1,30 +1,102 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { saveAs } from "file-saver";
 import { useAppStore } from "../../store/useAppStore";
 import {
   ACCIONES_SUGERIDAS,
   CATEGORIA_ICONOS,
-  COLORES_UI,
   EJEMPLOS_AREA,
   GENERADOR_CLAVE,
   LIMITE_CLAVE,
   UBICACION_AYUDA,
+  UBICACION_INFO,
 } from "../../domain/constants";
 import { construirCodigoEsencial, escalarCodigo, excedeLimiteClave, sanearSegmento } from "../../domain/codigo";
 import type { TipoUbicacion } from "../../domain/types";
-import { Button, Card, Input, InfoBox, Label, SectionTitle, Select } from "../ui/Primitives";
+import { Ayuda, BotonApp, Campo, Ejemplo, Opcion, Panel, Pastilla } from "../ui/Estilo";
 import { UbicacionSelector } from "../ui/UbicacionSelector";
 
 type NivelAlcance = "INTERNO" | "AREA" | "INSTITUCION" | "REGION";
 
-const PASOS: { nombre: string; bg: string; borde: string }[] = [
-  { nombre: "Área", bg: COLORES_UI.pasoArea, borde: "transparent" },
-  { nombre: "Categoría", bg: COLORES_UI.pasoCategoria, borde: "transparent" },
-  { nombre: "Clave", bg: COLORES_UI.pasoClave, borde: COLORES_UI.pasoClaveBorde },
-  { nombre: "Trazabilidad", bg: COLORES_UI.pasoTrazabilidad, borde: "transparent" },
-  { nombre: "Escalabilidad", bg: COLORES_UI.pasoEscalabilidad, borde: "transparent" },
-  { nombre: "Resumen", bg: COLORES_UI.pasoResumen, borde: "transparent" },
+// Una pregunta por pantalla. "pista" explica qué falta cuando no se puede avanzar.
+const PASOS: { nombre: string; icono: string; pregunta: string; subtitulo: string; pista: string }[] = [
+  {
+    nombre: "Área",
+    icono: "🏢",
+    pregunta: "¿De qué área es este trabajo?",
+    subtitulo: "Elige el departamento o equipo al que pertenece.",
+    pista: "Elige un área (o crea una nueva) para continuar.",
+  },
+  {
+    nombre: "Tipo",
+    icono: "🏷️",
+    pregunta: "¿Qué tipo de trabajo es?",
+    subtitulo: "Elige la opción que mejor lo describa.",
+    pista: "Elige un tipo de trabajo para continuar.",
+  },
+  {
+    nombre: "Nombre",
+    icono: "✏️",
+    pregunta: "¿Cómo se llama, en corto?",
+    subtitulo: "Un nombre breve y claro para reconocerlo después.",
+    pista: "Escribe un nombre corto para continuar.",
+  },
+  {
+    nombre: "Recorrido",
+    icono: "🧭",
+    pregunta: "¿De dónde viene y a dónde va?",
+    subtitulo: "Tres respuestas cortas para darle seguimiento.",
+    pista: "Responde las tres preguntas para continuar.",
+  },
+  {
+    nombre: "Carpeta",
+    icono: "📁",
+    pregunta: "¿Dónde vas a guardar los archivos?",
+    subtitulo: "La app no guarda tus archivos: solo anota dónde están.",
+    pista: "Marca “Listo, ya organicé mi carpeta” para continuar.",
+  },
+  {
+    nombre: "Alcance",
+    icono: "🌎",
+    pregunta: "¿Quién más va a usar este trabajo?",
+    subtitulo: "Si sale de tu área, el código se ajusta solo.",
+    pista: "Escribe el prefijo que falta para continuar.",
+  },
+  {
+    nombre: "Revisar",
+    icono: "✅",
+    pregunta: "Revisa y guarda",
+    subtitulo: "Si algo no está bien, toca “Cambiar”.",
+    pista: "",
+  },
 ];
+
+const ALCANCES: { valor: NivelAlcance; icono: string; titulo: string; texto: string }[] = [
+  { valor: "INTERNO", icono: "👤", titulo: "Solo mi área", texto: "Uso interno, sin prefijo adicional" },
+  { valor: "AREA", icono: "🏢", titulo: "Varias áreas de mi institución", texto: "Se agrega el código del área" },
+  { valor: "INSTITUCION", icono: "🏛️", titulo: "Otras instituciones", texto: "Se agrega un prefijo de institución" },
+  { valor: "REGION", icono: "🌎", titulo: "Una red regional o consorcio", texto: "Se agrega un prefijo de región" },
+];
+
+// Primera instrucción del paso "Carpeta", según dónde van a estar los archivos.
+const INSTRUCCION_CREAR: Record<TipoUbicacion, string> = {
+  DIGITAL_LOCAL: "En tu computadora, crea una carpeta con este nombre",
+  NUBE: "En tu Drive u OneDrive, crea una carpeta con este nombre",
+  FISICO: "Consigue un folder o carpeta y rotúlalo con este nombre",
+  CORREO: "Pon este código al inicio del asunto de tus correos",
+  OTRO: "Usa este nombre para identificarlo",
+};
+
+const SUGERENCIA_UBICACION: Record<TipoUbicacion, (codigo: string) => string> = {
+  DIGITAL_LOCAL: (c) => `Documentos/Trabajos-2026/${c}/`,
+  NUBE: (c) => `Mi unidad/Trabajos 2026/${c}`,
+  FISICO: (c) => `Archivero 3, cajón 2, carpeta ${c}`,
+  CORREO: (c) => `Correo institucional, asunto: ${c}`,
+  OTRO: (c) => c,
+};
+
+function iconoArea(nombre: string): string {
+  return EJEMPLOS_AREA.find((e) => e.nombre.toLowerCase() === nombre.toLowerCase())?.icono ?? "🏢";
+}
 
 export function WizardCrearTrabajo() {
   const areas = useAppStore((s) => s.areas);
@@ -35,18 +107,20 @@ export function WizardCrearTrabajo() {
   const crearTrabajo = useAppStore((s) => s.crearTrabajo);
   const irA = useAppStore((s) => s.irA);
 
+  const areasActivas = areas.filter((a) => a.activa);
+  const categoriasActivas = categorias.filter((c) => c.activa);
+
   const [paso, setPaso] = useState(0);
   const [mostrandoCheck, setMostrandoCheck] = useState(false);
-  const [mostrarListo, setMostrarListo] = useState(false);
 
-  // Área
+  // Área — si todavía no hay ninguna, el formulario para crear una ya aparece abierto.
   const [areaCodigo, setAreaCodigo] = useState("");
-  const [mostrarNuevaArea, setMostrarNuevaArea] = useState(false);
+  const [mostrarNuevaArea, setMostrarNuevaArea] = useState(() => areasActivas.length === 0);
   const [nuevaAreaNombre, setNuevaAreaNombre] = useState("");
   const [nuevaAreaCodigo, setNuevaAreaCodigo] = useState("");
   const [nuevaAreaCorreo, setNuevaAreaCorreo] = useState("");
 
-  // Categoría
+  // Categoría (tipo de trabajo)
   const [categoria, setCategoria] = useState("");
   const [mostrarNuevaCategoria, setMostrarNuevaCategoria] = useState(false);
   const [nuevaCatNombre, setNuevaCatNombre] = useState("");
@@ -55,20 +129,23 @@ export function WizardCrearTrabajo() {
   const [nuevaCatADonde, setNuevaCatADonde] = useState("");
   const [nuevaCatCorreo, setNuevaCatCorreo] = useState("");
 
-  // Clave
+  // Clave (nombre corto)
   const [claveInput, setClaveInput] = useState("");
   const codigoEsencial = areaCodigo && categoria && claveInput ? construirCodigoEsencial(areaCodigo, categoria, sanearSegmento(claveInput)) : "";
 
-  // Trazabilidad
+  // Recorrido
   const [origen, setOrigen] = useState("");
   const [accion, setAccion] = useState("");
   const [destino, setDestino] = useState("");
+
+  // Carpeta
   const [tipoUbicacion, setTipoUbicacion] = useState<TipoUbicacion>("DIGITAL_LOCAL");
   const [descripcionUbicacion, setDescripcionUbicacion] = useState("");
   const [estructuraCreada, setEstructuraCreada] = useState(false);
   const [modoUbicacion, setModoUbicacion] = useState<"YA_CREADA" | "POR_PLANEAR">("POR_PLANEAR");
+  const esCorreo = tipoUbicacion === "CORREO";
 
-  // Escalabilidad
+  // Alcance
   const [nivelAlcance, setNivelAlcance] = useState<NivelAlcance>("AREA");
   const [prefijoInstitucion, setPrefijoInstitucion] = useState("");
   const [prefijoRed, setPrefijoRed] = useState("");
@@ -76,14 +153,17 @@ export function WizardCrearTrabajo() {
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState("");
 
-  const areasActivas = areas.filter((a) => a.activa);
-  const categoriasActivas = categorias.filter((c) => c.activa);
   const nombreArea = areasActivas.find((a) => a.codigo === areaCodigo)?.nombre ?? areaCodigo;
   const nombreCategoria = categoriasActivas.find((c) => c.codigo === categoria)?.nombre ?? categoria;
 
   const niveles = escalarCodigo({ areaCodigo, categoria, clave: claveInput, prefijoInstitucion, prefijoRed });
   const codigoSegunAlcance =
     nivelAlcance === "INTERNO" ? niveles.cosa : nivelAlcance === "AREA" ? niveles.area : nivelAlcance === "INSTITUCION" ? niveles.institucion : niveles.region;
+
+  // Cada paso empieza arriba, como una pantalla nueva.
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [paso]);
 
   async function confirmarNuevaArea() {
     const codigo = sanearSegmento(nuevaAreaCodigo || nuevaAreaNombre);
@@ -123,6 +203,11 @@ export function WizardCrearTrabajo() {
     }, 350);
   }
 
+  function regresar() {
+    if (paso === 0) irA("INICIO");
+    else setPaso((p) => p - 1);
+  }
+
   function descargarEstructuraSugerida() {
     const raiz = codigoEsencial || "TU-CODIGO";
     const contenido = `Estructura de carpetas sugerida para ${raiz}\n(generada por Nomenclatura Viva)\n\n${raiz}/\n├── 01_ORIGEN/        de dónde viene este trabajo: solicitudes, requerimientos, notas iniciales\n├── 02_DESARROLLO/    borradores y versiones de trabajo\n├── 03_PRODUCTO/       el resultado final\n└── 04_ENTREGA/        lo que se comparte o entrega\n\nCrea esta misma carpeta raíz "${raiz}" ya sea en tu computadora, en la nube o como carpeta física — así todo lo relacionado con este trabajo queda en un solo lugar, identificado por su código.\n`;
@@ -131,15 +216,15 @@ export function WizardCrearTrabajo() {
 
   async function confirmar() {
     if (!autorActivo.trim()) {
-      setError('Escribe tu nombre arriba, junto al ícono de perfil — así quedas registrado como autor de este trabajo.');
+      setError("Escribe tus nombres y apellidos arriba a la derecha — así quedas registrado como autor de este trabajo.");
       return;
     }
     if (!areaCodigo || !categoria || !claveInput.trim() || !origen || !accion || !destino) {
-      setError("Completa todos los campos antes de guardar.");
+      setError("Falta información. Revisa los pasos marcados como incompletos.");
       return;
     }
     if (excedeLimiteClave(claveInput)) {
-      setError(`La clave no puede superar ${LIMITE_CLAVE} caracteres.`);
+      setError(`El nombre no puede tener más de ${LIMITE_CLAVE} letras.`);
       return;
     }
     setGuardando(true);
@@ -167,642 +252,634 @@ export function WizardCrearTrabajo() {
     irA("TABLERO");
   }
 
-  const colorPaso = PASOS[paso];
+  const pasoActual = PASOS[paso];
+  const esUltimo = paso === PASOS.length - 1;
   const puedeAvanzar =
     (paso === 0 && !!areaCodigo) ||
     (paso === 1 && !!categoria) ||
     (paso === 2 && !!claveInput.trim()) ||
-    (paso === 3 && !!origen && !!accion && !!destino && estructuraCreada) ||
-    (paso === 4 &&
-      (nivelAlcance === "INTERNO" || nivelAlcance === "AREA" || (nivelAlcance === "INSTITUCION" && !!prefijoInstitucion.trim()) || (nivelAlcance === "REGION" && !!prefijoInstitucion.trim() && !!prefijoRed.trim())));
-
-  const puedeAvanzarPrev = useRef(puedeAvanzar);
-  useEffect(() => {
-    if (!puedeAvanzarPrev.current && puedeAvanzar) {
-      setMostrarListo(true);
-      const t = setTimeout(() => setMostrarListo(false), 2200);
-      return () => clearTimeout(t);
-    }
-    puedeAvanzarPrev.current = puedeAvanzar;
-  }, [puedeAvanzar]);
+    (paso === 3 && !!origen.trim() && !!accion.trim() && !!destino.trim()) ||
+    (paso === 4 && estructuraCreada) ||
+    (paso === 5 &&
+      (nivelAlcance === "INTERNO" ||
+        nivelAlcance === "AREA" ||
+        (nivelAlcance === "INSTITUCION" && !!prefijoInstitucion.trim()) ||
+        (nivelAlcance === "REGION" && !!prefijoInstitucion.trim() && !!prefijoRed.trim())));
 
   return (
-    <Card className="relative">
+    <div className="w-full max-w-2xl mx-auto flex flex-col gap-5">
       {mostrandoCheck && (
         <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-40">
-          <div className="rounded-full w-16 h-16 flex items-center justify-center text-3xl shadow-lg animate-bounce text-white" style={{ backgroundColor: COLORES_UI.exito }}>
-            ✓
-          </div>
+          <div className="rounded-full w-16 h-16 flex items-center justify-center text-3xl shadow-lg animate-bounce text-white bg-emerald-500">✓</div>
         </div>
       )}
 
-      <SectionTitle subtitle="Responde las preguntas del sistema y registra la trazabilidad de tu trabajo.">
-        Nuevo trabajo — Paso {paso + 1} de {PASOS.length}: {colorPaso.nombre}
-      </SectionTitle>
-
-      {/* Indicador de pasos con círculos */}
-      <div className="flex items-center mb-6">
-        {PASOS.map((p, i) => (
-          <div key={p.nombre} className="flex items-center flex-1 last:flex-none">
-            <div className="flex flex-col items-center gap-1">
-              <div
-                className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0"
-                style={
-                  i < paso
-                    ? { backgroundColor: COLORES_UI.exito, color: "#fff" }
-                    : i === paso
-                      ? { backgroundColor: "#fff", color: COLORES_UI.advertencia, border: `2px solid ${COLORES_UI.advertencia}` }
-                      : { backgroundColor: "#e2e8f0", color: "#64748b" }
-                }
-              >
-                {i < paso ? "✓" : i + 1}
-              </div>
-              <span className="text-[9px] text-ink-faint whitespace-nowrap">{p.nombre}</span>
-            </div>
-            {i < PASOS.length - 1 && <div className="flex-1 h-0.5 mx-1" style={{ backgroundColor: i < paso ? COLORES_UI.exito : "#e2e8f0" }} />}
-          </div>
-        ))}
+      {/* Progreso */}
+      <div>
+        <div className="flex items-center justify-between text-xs font-medium text-ink-soft mb-2">
+          <span>
+            Paso {paso + 1} de {PASOS.length}
+          </span>
+          <span className="text-emerald-700 font-semibold">{pasoActual.nombre}</span>
+        </div>
+        <div className="flex gap-1.5" aria-hidden="true">
+          {PASOS.map((p, i) => (
+            <div
+              key={p.nombre}
+              className={`h-2 flex-1 rounded-full transition-colors ${i < paso ? "bg-emerald-500" : i === paso ? "bg-emerald-300" : "bg-line"}`}
+            />
+          ))}
+        </div>
       </div>
 
-      {paso === 0 && (
-        <div className="space-y-4 rounded-lg p-5" style={{ backgroundColor: colorPaso.bg }}>
-          <InfoBox>
-            Un <strong>área</strong> es la unidad de tu institución dueña de este trabajo — de ahí "salen" las áreas:
-            de cómo ya está organizada tu institución en departamentos o equipos. Si la tuya no aparece en la lista,
-            créala abajo: solo necesitas un nombre, el código corto se genera solo.
-          </InfoBox>
+      {/* Pregunta del paso */}
+      <div className="flex items-center gap-3">
+        <span aria-hidden="true" className="shrink-0 w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center text-3xl">
+          {pasoActual.icono}
+        </span>
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-ink leading-tight">{pasoActual.pregunta}</h1>
+          <p className="text-sm text-ink-soft mt-0.5">{pasoActual.subtitulo}</p>
+        </div>
+      </div>
 
-          <div>
-            <p className="text-xs font-medium text-ink-soft mb-2">Ejemplos de áreas típicas</p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {EJEMPLOS_AREA.map((ej) => (
-                <div key={ej.nombre} className="flex flex-col items-center text-center gap-1 bg-white border border-line rounded-md p-2">
-                  <span className="text-xl">{ej.icono}</span>
-                  <span className="text-[11px] text-ink-soft leading-tight">{ej.nombre}</span>
-                </div>
+      {/* ---------- Paso 1: Área ---------- */}
+      {paso === 0 && (
+        <div className="space-y-3">
+          {areasActivas.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {areasActivas.map((a) => (
+                <Opcion
+                  key={a.id}
+                  icono={iconoArea(a.nombre)}
+                  titulo={a.nombre}
+                  texto={`Código: ${a.codigo}`}
+                  seleccionada={areaCodigo === a.codigo}
+                  onClick={() => setAreaCodigo(a.codigo)}
+                />
               ))}
             </div>
-          </div>
-
-          <div className="bg-white/40 border border-dashed border-ink-faint/50 rounded-md p-3">
-            <p className="text-xs font-semibold text-ink-soft mb-1">¿Cómo se genera el código del área?</p>
-            <p className="text-xs text-ink-soft mb-2">
-              Escribes el nombre completo y la app arma sola un código corto con eso — tú no tienes que inventarlo.
-            </p>
-            <div className="flex items-center gap-2 text-xs font-mono flex-wrap">
-              <span className="px-2 py-1 rounded bg-ai-100 text-ai-700">Biblioteca</span>
-              <span className="text-ink-faint">→</span>
-              <span className="px-2 py-1 rounded bg-ink text-paper">BIBLIOTECA</span>
-            </div>
-            <p className="text-xs text-moss-700 mt-2">✅ "Biblioteca" — claro, cualquiera lo reconoce.</p>
-            <p className="text-xs text-terracotta-600">❌ "Depto 3" — no dice qué área es.</p>
-          </div>
+          )}
 
           {!mostrarNuevaArea ? (
-            <>
-              <Select value={areaCodigo} onChange={(e) => setAreaCodigo(e.target.value)}>
-                <option value="">Selecciona un área...</option>
-                {areasActivas.map((a) => (
-                  <option key={a.id} value={a.codigo}>
-                    {a.nombre} ({a.codigo})
-                  </option>
-                ))}
-              </Select>
-              <Button variant="ghost" onClick={() => setMostrarNuevaArea(true)}>
-                + Crear área nueva
-              </Button>
-            </>
+            <Opcion punteada icono="➕" titulo="Crear un área nueva" texto="Si la tuya no está en la lista" onClick={() => setMostrarNuevaArea(true)} />
           ) : (
-            <div className="space-y-3 border-2 border-ink-faint/60 shadow-sm rounded-md p-4 bg-white">
+            <Panel className="space-y-4 bg-white">
+              <p className="font-semibold text-ink">Nueva área</p>
+              <Campo
+                etiqueta="¿Cómo se llama el área?"
+                value={nuevaAreaNombre}
+                onChange={(e) => setNuevaAreaNombre(e.target.value)}
+                placeholder="Ej. Biblioteca"
+                autoFocus
+                pista={
+                  nuevaAreaNombre.trim() ? (
+                    <>
+                      Su código será: <strong className="font-mono text-ink">{sanearSegmento(nuevaAreaCodigo || nuevaAreaNombre)}</strong>
+                    </>
+                  ) : (
+                    "El código corto se arma solo con el nombre."
+                  )
+                }
+              />
               <div>
-                <Label>Nombre del área</Label>
-                <Input value={nuevaAreaNombre} onChange={(e) => setNuevaAreaNombre(e.target.value)} placeholder="Ej. Biblioteca" />
+                <p className="text-xs font-medium text-ink-soft mb-2">O toca un ejemplo:</p>
+                <div className="flex flex-wrap gap-2">
+                  {EJEMPLOS_AREA.map((ej) => (
+                    <Pastilla key={ej.nombre} activa={nuevaAreaNombre === ej.nombre} onClick={() => setNuevaAreaNombre(ej.nombre)}>
+                      {ej.icono} {ej.nombre}
+                    </Pastilla>
+                  ))}
+                </div>
               </div>
-              <div>
-                <Label>Código corto (se genera solo si lo dejas vacío)</Label>
-                <Input value={nuevaAreaCodigo} onChange={(e) => setNuevaAreaCodigo(e.target.value)} placeholder="Ej. BIBLIO" />
-              </div>
-              <div>
-                <Label>Correo de contacto del área (opcional)</Label>
-                <Input
+              <Ayuda titulo="Más opciones (no es obligatorio)" icono="⚙️">
+                <Campo etiqueta="Código corto" value={nuevaAreaCodigo} onChange={(e) => setNuevaAreaCodigo(e.target.value)} placeholder="Ej. BIBLIO" />
+                <Campo
+                  etiqueta="Correo de contacto del área"
                   type="email"
                   value={nuevaAreaCorreo}
                   onChange={(e) => setNuevaAreaCorreo(e.target.value)}
                   placeholder="Ej. biblioteca@tuinstitucion.edu.mx"
                 />
-              </div>
+              </Ayuda>
               <div className="flex gap-2">
-                <Button onClick={confirmarNuevaArea}>Guardar área</Button>
-                <Button variant="ghost" onClick={() => setMostrarNuevaArea(false)}>
-                  Cancelar
-                </Button>
+                <BotonApp onClick={confirmarNuevaArea} disabled={!nuevaAreaNombre.trim()} className="flex-1">
+                  Guardar área
+                </BotonApp>
+                {areasActivas.length > 0 && (
+                  <BotonApp color="blanco" onClick={() => setMostrarNuevaArea(false)}>
+                    Cancelar
+                  </BotonApp>
+                )}
               </div>
-            </div>
+            </Panel>
           )}
+
+          <Ayuda titulo="¿Qué es un área?">
+            <p>
+              Es el departamento o equipo de tu institución que es dueño de este trabajo. Usa los mismos nombres que ya
+              tienen en tu institución.
+            </p>
+            <Ejemplo bien>"Biblioteca" — claro, cualquiera lo reconoce.</Ejemplo>
+            <Ejemplo bien={false}>"Depto 3" — no dice qué área es.</Ejemplo>
+          </Ayuda>
         </div>
       )}
 
+      {/* ---------- Paso 2: Tipo (categoría) ---------- */}
       {paso === 1 && (
-        <div className="space-y-3 rounded-lg p-5" style={{ backgroundColor: colorPaso.bg }}>
-          <InfoBox>
-            Una <strong>categoría</strong> describe qué tipo de acción es este trabajo (un proyecto, un convenio, una
-            producción...). <strong>¿Para qué sirve?</strong> Es el vocabulario común entre áreas: te permite
-            encontrar y comparar todos los trabajos del mismo tipo, aunque sean de departamentos distintos.
-          </InfoBox>
-          <InfoBox tono="warning">
-            <strong>Mejora continua:</strong> no tienen que quedarse como están — puedes editar su nombre o crear
-            categorías nuevas si tu institución las necesita, aquí mismo o desde Configuración. Cada cambio viaja en
-            tu archivo exportado.
-          </InfoBox>
-
-          <div className="bg-white/40 border border-dashed border-ink-faint/50 rounded-md p-3">
-            <p className="text-xs font-semibold text-ink-soft mb-1">✅ / ❌ al elegir categoría</p>
-            <p className="text-xs text-moss-700">✅ Un video institucional → Divulgación (es para mostrarlo, no para gestionarlo)</p>
-            <p className="text-xs text-terracotta-600">❌ Ese mismo video clasificado como "Administración" — no dice qué tipo de acción es</p>
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {categoriasActivas.map((c) => (
+              <Opcion
+                key={c.id}
+                icono={CATEGORIA_ICONOS[c.codigo] ?? "🏷️"}
+                titulo={c.nombre}
+                texto={c.deDondeViene && c.aDondeVa ? `${c.deDondeViene} → ${c.aDondeVa}` : `Código: ${c.codigo}`}
+                seleccionada={categoria === c.codigo}
+                onClick={() => setCategoria(c.codigo)}
+              />
+            ))}
           </div>
 
           {!mostrarNuevaCategoria ? (
-            <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {categoriasActivas.map((c) => (
-                  <button
-                    key={c.id}
-                    onClick={() => setCategoria(c.codigo)}
-                    className={`text-left rounded-md border p-3 transition-colors bg-white ${
-                      categoria === c.codigo ? "border-moss-500 bg-moss-50" : "border-line hover:border-moss-300"
-                    }`}
-                  >
-                    <div className="font-medium text-ink flex items-center gap-1.5">
-                      <span>{CATEGORIA_ICONOS[c.codigo] ?? "🏷️"}</span>
-                      {c.nombre} <span className="text-ink-faint font-normal">({c.codigo})</span>
-                    </div>
-                    <div className="text-xs text-ink-soft mt-1">De: {c.deDondeViene}</div>
-                    <div className="text-xs text-ink-soft">A: {c.aDondeVa}</div>
-                  </button>
-                ))}
-              </div>
-              <Button variant="ghost" onClick={() => setMostrarNuevaCategoria(true)}>
-                + Crear categoría nueva
-              </Button>
-            </>
+            <Opcion punteada icono="➕" titulo="Crear un tipo nuevo" texto="Si ninguno describe tu trabajo" onClick={() => setMostrarNuevaCategoria(true)} />
           ) : (
-            <div className="space-y-3 border-2 border-ink-faint/60 shadow-sm rounded-md p-4 bg-white">
-              <div>
-                <Label>Nombre de la categoría</Label>
-                <Input value={nuevaCatNombre} onChange={(e) => setNuevaCatNombre(e.target.value)} placeholder="Ej. Vinculación" />
-              </div>
-              <div>
-                <Label>Código corto (se genera solo si lo dejas vacío)</Label>
-                <Input value={nuevaCatCodigo} onChange={(e) => setNuevaCatCodigo(e.target.value)} placeholder="Ej. VINC" />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <Label>¿De dónde viene? (ejemplo típico)</Label>
-                  <Input value={nuevaCatDeDonde} onChange={(e) => setNuevaCatDeDonde(e.target.value)} placeholder="Ej. Solicitud externa" />
-                </div>
-                <div>
-                  <Label>¿A dónde va? (ejemplo típico)</Label>
-                  <Input value={nuevaCatADonde} onChange={(e) => setNuevaCatADonde(e.target.value)} placeholder="Ej. Convenio firmado" />
-                </div>
-              </div>
-              <div>
-                <Label>Correo de contacto para esta categoría (opcional)</Label>
-                <Input
+            <Panel className="space-y-4 bg-white">
+              <p className="font-semibold text-ink">Nuevo tipo de trabajo</p>
+              <Campo
+                etiqueta="¿Cómo se llama este tipo?"
+                value={nuevaCatNombre}
+                onChange={(e) => setNuevaCatNombre(e.target.value)}
+                placeholder="Ej. Vinculación"
+                autoFocus
+                pista={
+                  nuevaCatNombre.trim() ? (
+                    <>
+                      Su código será: <strong className="font-mono text-ink">{sanearSegmento(nuevaCatCodigo || nuevaCatNombre)}</strong>
+                    </>
+                  ) : (
+                    "El código corto se arma solo con el nombre."
+                  )
+                }
+              />
+              <Ayuda titulo="Más opciones (no es obligatorio)" icono="⚙️">
+                <Campo etiqueta="Código corto" value={nuevaCatCodigo} onChange={(e) => setNuevaCatCodigo(e.target.value)} placeholder="Ej. VINC" />
+                <Campo
+                  etiqueta="¿De dónde suele venir?"
+                  value={nuevaCatDeDonde}
+                  onChange={(e) => setNuevaCatDeDonde(e.target.value)}
+                  placeholder="Ej. Solicitud externa"
+                />
+                <Campo
+                  etiqueta="¿A dónde suele ir?"
+                  value={nuevaCatADonde}
+                  onChange={(e) => setNuevaCatADonde(e.target.value)}
+                  placeholder="Ej. Convenio firmado"
+                />
+                <Campo
+                  etiqueta="Correo de contacto"
                   type="email"
                   value={nuevaCatCorreo}
                   onChange={(e) => setNuevaCatCorreo(e.target.value)}
                   placeholder="Ej. vinculacion@tuinstitucion.edu.mx"
                 />
-              </div>
+              </Ayuda>
               <div className="flex gap-2">
-                <Button onClick={confirmarNuevaCategoria}>Guardar categoría</Button>
-                <Button variant="ghost" onClick={() => setMostrarNuevaCategoria(false)}>
+                <BotonApp onClick={confirmarNuevaCategoria} disabled={!nuevaCatNombre.trim()} className="flex-1">
+                  Guardar tipo
+                </BotonApp>
+                <BotonApp color="blanco" onClick={() => setMostrarNuevaCategoria(false)}>
                   Cancelar
-                </Button>
+                </BotonApp>
               </div>
-            </div>
+            </Panel>
           )}
+
+          <Ayuda titulo="¿Para qué sirve el tipo?">
+            <p>
+              Dice qué clase de trabajo es (un proyecto, un convenio, una producción…). Sirve para encontrar y comparar
+              todos los trabajos del mismo tipo, aunque sean de áreas distintas.
+            </p>
+            <p>Los tipos se pueden editar o agregar después desde Configuración.</p>
+            <Ejemplo bien>Un video institucional → Divulgación (es para mostrarlo).</Ejemplo>
+            <Ejemplo bien={false}>Ese mismo video como "Administración" — no dice qué es.</Ejemplo>
+          </Ayuda>
         </div>
       )}
 
+      {/* ---------- Paso 3: Nombre corto (clave) ---------- */}
       {paso === 2 && (
-        <div className="space-y-5 rounded-lg p-5" style={{ backgroundColor: colorPaso.bg, border: `3px solid ${colorPaso.borde}` }}>
-          <div className="flex items-center gap-2">
-            <span className="text-xl" style={{ color: COLORES_UI.pasoClaveBorde }}>◆</span>
-            <p className="text-sm font-medium" style={{ color: "#92400e" }}>
-              La clave es el campo más importante: con ella se arma tu código y así vas a reconocer este trabajo.
-            </p>
-          </div>
+        <div className="space-y-4">
+          <Campo
+            value={claveInput}
+            onChange={(e) => setClaveInput(e.target.value)}
+            maxLength={LIMITE_CLAVE}
+            placeholder="Ej. Catálogo de libros 2026"
+            autoFocus
+            className="text-lg"
+            pista={
+              <span className={claveInput.length > LIMITE_CLAVE - 5 ? "text-amber-700 font-semibold" : ""}>
+                {claveInput.length} de {LIMITE_CLAVE} letras
+              </span>
+            }
+          />
 
-          {/* Generador de ideas */}
-          <div className="bg-white/70 rounded-lg p-4 border border-kaki-200">
-            <p className="text-sm font-semibold text-ink mb-1">Generador de ideas para tu clave</p>
-            <p className="text-xs text-ink-soft mb-3">
-              Estos son <strong>ejemplos de partida, no reglas fijas</strong> — adáptalos a tu propio trabajo. Si no
-              sabes cómo nombrar tu trabajo, elige una categoría aquí abajo y ajusta el resultado. Si ya tienes una
-              idea, escríbela directamente en el campo manual más abajo — ambas formas funcionan.
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {GENERADOR_CLAVE.map((g) => (
-                <div key={g.categoria} className="border border-kaki-200 rounded-md p-3 bg-white">
-                  <p className="text-xs font-semibold text-ink mb-1">{g.categoria}</p>
-                  <p className="text-[11px] text-ink-soft mb-1">{g.ejemplos.join(", ")}</p>
-                  <p className="text-[11px] font-mono text-ink-faint mb-1">Formato: {g.formato}</p>
-                  <p className="text-[11px] text-ink-faint mb-2 leading-snug">{g.comoSeConstruye}</p>
-                  <button
-                    type="button"
-                    onClick={() => setClaveInput(g.ejemploCompleto)}
-                    className="text-xs font-medium px-2 py-1 rounded-full border border-kaki-300 hover:bg-kaki-100 transition-colors"
-                  >
-                    {g.etiquetaBoton} → {g.ejemploCompleto}
-                  </button>
-                </div>
+          <VistaCodigo
+            partes={[
+              { texto: nombreArea || "Área", clase: "bg-sky-100 text-sky-800" },
+              { texto: nombreCategoria || "Tipo", clase: "bg-emerald-100 text-emerald-800" },
+              { texto: claveInput || "Nombre", clase: "bg-amber-100 text-amber-800" },
+            ]}
+            codigo={codigoEsencial}
+          />
+
+          <div className="flex flex-wrap gap-2">
+            <Ayuda titulo="¿No se te ocurre? Ver ideas">
+              <p>Toca una idea para usarla y luego ajústala a tu trabajo.</p>
+              <div className="space-y-2.5">
+                {GENERADOR_CLAVE.map((g) => (
+                  <div key={g.categoria} className="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-2.5 first:border-0 first:pt-0">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-ink">{g.categoria}</p>
+                      <p className="text-xs text-ink-faint">{g.ejemplos.slice(0, 4).join(", ")}…</p>
+                    </div>
+                    <Pastilla activa={claveInput === g.ejemploCompleto} onClick={() => setClaveInput(g.ejemploCompleto)}>
+                      Usar {g.ejemploCompleto}
+                    </Pastilla>
+                  </div>
+                ))}
+              </div>
+            </Ayuda>
+            <Ayuda titulo="Consejos para un buen nombre" icono="📝">
+              <ol className="list-decimal ml-4 space-y-0.5">
+                <li>Piensa en el nombre natural del trabajo.</li>
+                <li>Hazlo corto y claro.</li>
+                <li>Si tiene fecha o periodo, agrégalo.</li>
+                <li>Que alguien de otra área entienda de qué se trata.</li>
+              </ol>
+              <Ejemplo bien>"Catálogo de libros 2026" — corto, específico, con fecha.</Ejemplo>
+              <Ejemplo bien={false}>"Cosas de la biblioteca de este semestre y el próximo" — muy largo.</Ejemplo>
+              <Ejemplo bien={false}>"Doc1" — no dice nada.</Ejemplo>
+            </Ayuda>
+          </div>
+        </div>
+      )}
+
+      {/* ---------- Paso 4: Recorrido ---------- */}
+      {paso === 3 && (
+        <div className="space-y-3">
+          <PreguntaNumerada numero={1} listo={!!origen.trim()}>
+            <Campo
+              etiqueta="📥 ¿Quién lo pidió o de dónde viene?"
+              value={origen}
+              onChange={(e) => setOrigen(e.target.value)}
+              placeholder="Ej. Lo solicita Coordinación Académica"
+            />
+          </PreguntaNumerada>
+
+          <PreguntaNumerada numero={2} listo={!!accion.trim()}>
+            <Campo etiqueta="⚙️ ¿Qué se va a hacer?" value={accion} onChange={(e) => setAccion(e.target.value)} placeholder="Ej. Construir" />
+            <div className="flex flex-wrap gap-2 mt-2">
+              {ACCIONES_SUGERIDAS.map((a) => (
+                <Pastilla key={a} activa={accion === a} onClick={() => setAccion(a)}>
+                  {a}
+                </Pastilla>
               ))}
             </div>
-            <div className="mt-3 pt-3 border-t border-kaki-200">
-              <p className="text-xs text-ink-soft">
-                <strong>No estás obligado a usar estos formatos.</strong> Puedes escribir tu clave de otra forma que
-                se adapte mejor a tu trabajo — solo recomendaciones: que no sea muy larga, que sea específica, y que
-                incluya una fecha si aplica. Ejemplo generado de otra forma:{" "}
-                <span className="font-mono">"Revisión trimestral biblioteca — marzo 2026"</span>.
-              </p>
-            </div>
-          </div>
+          </PreguntaNumerada>
 
-          <div>
-            <Label>Clave (campo manual)</Label>
-            <Input
-              value={claveInput}
-              onChange={(e) => setClaveInput(e.target.value)}
-              maxLength={LIMITE_CLAVE}
-              placeholder="Ej. Catálogo de libros 2026"
-              className="border-kaki-300 focus:border-kaki-500 focus:ring-kaki-500"
+          <PreguntaNumerada numero={3} listo={!!destino.trim()}>
+            <Campo
+              etiqueta="📤 ¿Qué se va a entregar?"
+              value={destino}
+              onChange={(e) => setDestino(e.target.value)}
+              placeholder="Ej. Un catálogo que se pueda consultar"
             />
-            <p className={`text-xs mt-1 ${claveInput.length > LIMITE_CLAVE - 5 ? "text-kaki-600 font-medium" : "text-ink-faint"}`}>
-              {claveInput.length}/{LIMITE_CLAVE} caracteres
-            </p>
-          </div>
+          </PreguntaNumerada>
 
-          {/* Infografía AREA + CATEGORIA + CLAVE = CODIGO */}
-          <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
-            <span className="px-2 py-1 rounded bg-ai-100 text-ai-700">{nombreArea || "ÁREA"}</span>
-            <span className="text-ink-faint">+</span>
-            <span className="px-2 py-1 rounded bg-moss-100 text-moss-700">{nombreCategoria || "CATEGORÍA"}</span>
-            <span className="text-ink-faint">+</span>
-            <span className="px-2 py-1 rounded bg-kaki-200 text-kaki-800">{claveInput || "CLAVE"}</span>
-            <span className="text-ink-faint">=</span>
-            <span className="px-2 py-1 rounded bg-ink text-paper">{codigoEsencial || "CÓDIGO COMPLETO"}</span>
-          </div>
-
-          <div className="bg-white/40 border border-dashed border-kaki-300 rounded-md p-3">
-            <p className="text-xs font-semibold text-ink-soft mb-1">Paso a paso para escribir tu clave:</p>
-            <ol className="text-xs text-ink-soft list-decimal ml-4 space-y-0.5">
-              <li>Piensa en el nombre natural del trabajo (ej. "Catálogo de biblioteca").</li>
-              <li>Redúcelo a algo corto y claro (ej. "Catálogo").</li>
-              <li>Si tiene fecha o periodo, agrégalo (ej. "Catálogo 2026").</li>
-              <li>Verifica que alguien de otra área podría entender de qué se trata.</li>
-            </ol>
-            <p className="text-xs text-moss-700 mt-2">✅ "Catálogo de libros 2026" — corto, específico, con fecha.</p>
-            <p className="text-xs text-terracotta-600">❌ "Cosas de la biblioteca que hay que hacer este semestre y el próximo" — demasiado largo.</p>
-            <p className="text-xs text-terracotta-600">❌ "Doc1" — no dice nada.</p>
-          </div>
+          <p className="text-sm text-ink-soft flex items-center gap-2 px-1">
+            <span aria-hidden="true">🔴</span>
+            Tu trabajo empieza como <strong className="text-ink">“Por iniciar”</strong>. Después podrás cambiar su estado.
+          </p>
         </div>
       )}
 
-      {paso === 3 && (
-        <div className="space-y-6 rounded-lg p-5" style={{ backgroundColor: colorPaso.bg }}>
-          <div>
-            <p className="text-sm font-medium text-ink mb-3">¿Cómo fluye este trabajo?</p>
-            <div className="flex flex-col sm:flex-row items-stretch gap-2">
-              <div className={`flex-1 rounded-md p-3 border-2 transition-colors ${origen ? "border-ai-400 bg-ai-50" : "border-ai-100 bg-white"}`}>
-                <Label>📥 Origen — ¿quién lo pidió?</Label>
-                <Input value={origen} onChange={(e) => setOrigen(e.target.value)} placeholder="Ej. Coordinación Académica solicita" />
-              </div>
-              <span className="hidden sm:flex items-center text-xl text-ink-faint">→</span>
-              <div className={`flex-1 rounded-md p-3 border-2 transition-colors ${accion ? "border-moss-400 bg-moss-50" : "border-moss-100 bg-white"}`}>
-                <Label>⚙️ Acción — ¿qué se hace?</Label>
-                <Input list="acciones-sugeridas" value={accion} onChange={(e) => setAccion(e.target.value)} placeholder="Ej. Se construye" />
-                <datalist id="acciones-sugeridas">
-                  {ACCIONES_SUGERIDAS.map((a) => (
-                    <option key={a} value={a} />
-                  ))}
-                </datalist>
-                <p className="text-[11px] text-ink-faint mt-1">Elige una de la lista o escribe la tuya, como prefieras.</p>
-              </div>
-              <span className="hidden sm:flex items-center text-xl text-ink-faint">→</span>
-              <div className={`flex-1 rounded-md p-3 border-2 transition-colors ${destino ? "border-ai-500 bg-ai-100" : "border-ai-100 bg-white"}`}>
-                <Label>📤 Destino — ¿qué se entrega?</Label>
-                <Input value={destino} onChange={(e) => setDestino(e.target.value)} placeholder="Ej. Un catálogo consultable" />
-              </div>
-              <span className="hidden sm:flex items-center text-xl text-ink-faint">→</span>
-              <div className="flex-1 rounded-md p-3 border-2 border-terracotta-100 bg-white flex flex-col items-center justify-center text-center">
-                <Label>Estado — ¿en qué fase está?</Label>
-                <span className="text-xl">🔴</span>
-                <span className="text-[11px] text-ink-soft">Por iniciar (siempre así al crearlo)</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="border-t border-line pt-4">
-            <p className="text-sm font-medium text-ink mb-1">Guía de organización de tu trabajo</p>
-            <p className="text-xs text-ink-soft mb-3">Esto no lo guarda la app — te guía paso a paso para que organices tú mismo tu carpeta.</p>
-
-            <div className="mb-4">
-              <Label>¿Qué tipo de ubicación es principalmente?</Label>
-              <UbicacionSelector value={tipoUbicacion} onChange={setTipoUbicacion} />
-              {codigoEsencial && (
-                <div className="mt-2">
-                  <InfoBox tono="warning">{UBICACION_AYUDA[tipoUbicacion](codigoEsencial, areaCodigo, categoria)}</InfoBox>
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-3">
-              <PasoGuia letra="A" titulo="Crea tu carpeta raíz">
-                <p className="text-xs text-ink-soft">Crea una carpeta principal con el código de tu trabajo. Contendrá TODO lo relacionado con él.</p>
-                <p className="text-xs font-mono bg-white border border-line rounded px-2 py-1 mt-1 inline-block">📁 {codigoEsencial || "TU-CODIGO"}/</p>
-              </PasoGuia>
-
-              <PasoGuia letra="B" titulo="Crea las subcarpetas sugeridas">
-                <p className="text-xs text-ink-soft mb-1">Dentro de tu carpeta principal, crea estas cuatro subcarpetas:</p>
-                <div className="bg-ink text-paper/90 rounded-md p-3 font-mono text-xs overflow-x-auto whitespace-pre">
-{`📁 ${codigoEsencial || "TU-CODIGO"}/
-├── 📁 01_ORIGEN/       ← lo que justifica el trabajo
-├── 📁 02_DESARROLLO/   ← borradores y avances
-├── 📁 03_PRODUCTO/     ← el resultado final
-└── 📁 04_ENTREGA/      ← lo que entregaste y comprobantes`}
-                </div>
-              </PasoGuia>
-
-              <PasoGuia letra="C" titulo="Si varias áreas participan, sepáralas dentro de 02_DESARROLLO">
-                <div className="bg-ink text-paper/90 rounded-md p-3 font-mono text-xs overflow-x-auto whitespace-pre mb-1">
-{`📁 02_DESARROLLO/
-├── 📁 Area-Biblioteca/
-├── 📁 Area-Diseño/
-└── 📁 Area-TI/`}
-                </div>
-                <p className="text-xs text-ink-soft">Así cada área sabe dónde poner sus aportes, sin mezclar archivos.</p>
-              </PasoGuia>
-
-              <PasoGuia letra="D" titulo="Nombra los archivos con claridad">
-                <p className="text-xs text-moss-700">✅ {codigoEsencial || "TU-CODIGO"}_borrador-v1.docx</p>
-                <p className="text-xs text-moss-700">✅ {codigoEsencial || "TU-CODIGO"}_reunion-inicial.pdf</p>
-                <p className="text-xs text-moss-700">✅ {codigoEsencial || "TU-CODIGO"}_producto-final.pdf</p>
-                <p className="text-xs text-terracotta-600 mt-1">❌ documento1.docx — no dice qué es</p>
-                <p className="text-xs text-terracotta-600">❌ nuevo.pdf — muy genérico</p>
-              </PasoGuia>
-
-              <PasoGuia letra="E" titulo="Ubicación física vs. digital">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <div className="bg-white border border-line rounded p-2">
-                    <p className="text-xs font-semibold text-ink">💻 En mi computadora</p>
-                    <p className="text-[11px] text-ink-soft">La misma carpeta raíz, digital, con sus 4 subcarpetas.</p>
-                  </div>
-                  <div className="bg-white border border-line rounded p-2">
-                    <p className="text-xs font-semibold text-ink">🗄️ En mi escritorio físico</p>
-                    <p className="text-[11px] text-ink-soft">
-                      Si tienes hojas firmadas o contratos, crea una carpeta física con el MISMO nombre y guárdalos en el
-                      mismo orden.
-                    </p>
-                  </div>
-                </div>
-              </PasoGuia>
-            </div>
-
-            <Button variant="secondary" className="mt-3" onClick={descargarEstructuraSugerida}>
-              ↓ Descargar estructura sugerida (.txt)
-            </Button>
-
-            <div className="mt-5 pb-4" style={{ borderBottom: `4px solid ${COLORES_UI.pasoClaveBorde}` }}>
-              <p className="text-sm font-medium text-ink mb-2">🏁 ¿En qué momento estás?</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                <button
-                  type="button"
-                  onClick={() => setModoUbicacion("YA_CREADA")}
-                  className={`text-left rounded-md border p-3 transition-colors ${
-                    modoUbicacion === "YA_CREADA" ? "border-moss-500 bg-moss-50" : "border-line bg-white hover:border-moss-300"
-                  }`}
-                >
-                  <p className="text-sm font-medium text-ink">✅ Ya la creé</p>
-                  <p className="text-xs text-ink-soft mt-0.5">Ya tengo mi carpeta lista — solo quiero anotar dónde quedó.</p>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setModoUbicacion("POR_PLANEAR")}
-                  className={`text-left rounded-md border p-3 transition-colors ${
-                    modoUbicacion === "POR_PLANEAR" ? "border-kaki-400 bg-kaki-50" : "border-line bg-white hover:border-kaki-300"
-                  }`}
-                >
-                  <p className="text-sm font-medium text-ink">🗒️ Todavía no — hay que planearla</p>
-                  <p className="text-xs text-ink-soft mt-0.5">Aún no la he creado; necesito decidir dónde va a vivir.</p>
-                </button>
-              </div>
-
-              {modoUbicacion === "YA_CREADA" ? (
-                <div className="bg-white border-2 border-moss-400 shadow-sm rounded-md p-3 mb-3">
-                  <Label>¿Dónde quedó guardada tu carpeta principal?</Label>
-                  <Input
-                    value={descripcionUbicacion}
-                    onChange={(e) => setDescripcionUbicacion(e.target.value)}
-                    placeholder="Ej. Documentos/Trabajos-2025/BIBLIO-PROY-CATALOGO/"
-                  />
-                </div>
-              ) : (
-                <div className="bg-white border-2 border-kaki-400 shadow-sm rounded-md p-3 mb-3 space-y-2">
-                  <Label>Elige dónde planeas guardarla y anótalo aquí</Label>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
-                    <button
-                      type="button"
-                      onClick={() => setDescripcionUbicacion(`Documentos/Trabajos-2026/${codigoEsencial || "CODIGO"}/`)}
-                      className="text-left border border-line rounded p-2 hover:border-kaki-300"
-                    >
-                      <p className="font-semibold text-ink">💻 En mi computadora</p>
-                      <p className="font-mono text-ink-faint mt-0.5">Documentos/Trabajos-2026/{codigoEsencial || "CODIGO"}/</p>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDescripcionUbicacion(`Mi unidad/Trabajos 2026/${codigoEsencial || "CODIGO"}`)}
-                      className="text-left border border-line rounded p-2 hover:border-kaki-300"
-                    >
-                      <p className="font-semibold text-ink">☁️ En la nube</p>
-                      <p className="font-mono text-ink-faint mt-0.5">Mi unidad/Trabajos 2026/{codigoEsencial || "CODIGO"}</p>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDescripcionUbicacion(`Archivero 3, cajón 2, carpeta ${codigoEsencial || "CODIGO"}`)}
-                      className="text-left border border-line rounded p-2 hover:border-kaki-300"
-                    >
-                      <p className="font-semibold text-ink">🗄️ Físico</p>
-                      <p className="font-mono text-ink-faint mt-0.5">Archivero 3, cajón 2, carpeta {codigoEsencial || "CODIGO"}</p>
-                    </button>
-                  </div>
-                  <Input
-                    value={descripcionUbicacion}
-                    onChange={(e) => setDescripcionUbicacion(e.target.value)}
-                    placeholder="O escribe tu propio plan aquí..."
-                  />
-                </div>
-              )}
-
-              <div className="bg-white border-2 border-ink-faint/60 shadow-sm rounded-md p-3">
-                <label className="flex items-start gap-2 text-sm text-ink font-medium cursor-pointer">
-                  <input type="checkbox" className="mt-0.5" checked={estructuraCreada} onChange={(e) => setEstructuraCreada(e.target.checked)} />
-                  Ya creé mi carpeta y organización.
-                </label>
-                {!estructuraCreada && (
-                  <p className="text-xs mt-1" style={{ color: COLORES_UI.pasoClaveBorde }}>
-                    Marca la casilla cuando hayas creado tu estructura de carpetas. Este paso es importante para que
-                    tu trabajo quede bien documentado.
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
+      {/* ---------- Paso 5: Carpeta ---------- */}
       {paso === 4 && (
-        <div className="space-y-4 rounded-lg p-5" style={{ backgroundColor: colorPaso.bg }}>
-          <InfoBox>
-            La escalabilidad permite que tu trabajo sea reconocido cuando cruza fronteras entre áreas o
-            instituciones. Elige el alcance que corresponde hoy — puedes ajustarlo después desde el detalle del
-            trabajo.
-          </InfoBox>
-
-          <div className="bg-white/40 rounded-md border border-dashed border-ink-faint/50 p-3">
-            <p className="text-xs text-ink-faint uppercase tracking-wide mb-1">Tu código actual</p>
-            <p className="text-lg font-mono font-semibold text-ink">{codigoEsencial || "—"}</p>
+        <div className="space-y-5">
+          <div className="space-y-2">
+            <p className="text-sm font-semibold text-ink">1. ¿Dónde van a estar los archivos?</p>
+            <UbicacionSelector value={tipoUbicacion} onChange={setTipoUbicacion} />
           </div>
 
           <div className="space-y-2">
-            <p className="text-sm font-medium text-ink">Selecciona el nivel de alcance de este trabajo:</p>
-            {(
-              [
-                ["INTERNO", "Uso interno del área (sin prefijo adicional)"],
-                ["AREA", "Entre áreas de la institución (prefijo de área)"],
-                ["INSTITUCION", "Entre instituciones (prefijo de institución)"],
-                ["REGION", "Red regional / consorcio (prefijo de región)"],
-              ] as [NivelAlcance, string][]
-            ).map(([valor, etiqueta]) => (
-              <label
-                key={valor}
-                className={`flex items-center gap-2 text-sm bg-white border-2 shadow-sm rounded-md p-2.5 cursor-pointer transition-colors ${
-                  nivelAlcance === valor ? "border-moss-500 text-ink" : "border-ink-faint/40 text-ink-soft"
-                }`}
-              >
-                <input type="radio" name="nivelAlcance" checked={nivelAlcance === valor} onChange={() => setNivelAlcance(valor)} />
-                {etiqueta}
-              </label>
+            <p className="text-sm font-semibold text-ink">2. {esCorreo ? "¿Ya usas el código en tus correos?" : "¿Ya tienes la carpeta creada?"}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Opcion
+                icono="✅"
+                titulo={esCorreo ? "Sí, ya lo uso" : "Sí, ya la tengo"}
+                texto="Solo voy a anotar dónde quedó"
+                seleccionada={modoUbicacion === "YA_CREADA"}
+                onClick={() => setModoUbicacion("YA_CREADA")}
+              />
+              <Opcion
+                icono="🙋"
+                titulo="Todavía no"
+                texto="Dime paso a paso qué hacer"
+                seleccionada={modoUbicacion === "POR_PLANEAR"}
+                onClick={() => setModoUbicacion("POR_PLANEAR")}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <p className="text-sm font-semibold text-ink">3. {modoUbicacion === "POR_PLANEAR" ? "Haz esto ahora" : "Revisa y anota"}</p>
+            <div className="rounded-2xl bg-white border border-line p-4 space-y-5">
+              {modoUbicacion === "POR_PLANEAR" ? (
+                <>
+                  <Instruccion numero={1} titulo={INSTRUCCION_CREAR[tipoUbicacion]}>
+                    <CodigoCopiable codigo={codigoEsencial} />
+                  </Instruccion>
+                  {!esCorreo && (
+                    <Instruccion numero={2} titulo="Dentro, crea estas 4 subcarpetas">
+                      <pre className="bg-ink text-paper/90 rounded-xl p-3 font-mono text-xs overflow-x-auto">
+{`📁 ${codigoEsencial || "TU-CODIGO"}/
+├── 📁 01_ORIGEN/       ← lo que lo pidió o justifica
+├── 📁 02_DESARROLLO/   ← borradores y avances
+├── 📁 03_PRODUCTO/     ← el resultado final
+└── 📁 04_ENTREGA/      ← lo que entregaste`}
+                      </pre>
+                    </Instruccion>
+                  )}
+                  <Instruccion numero={esCorreo ? 2 : 3} titulo={esCorreo ? "Anota en qué cuenta o bandeja" : "Anota dónde la creaste"}>
+                    <Campo
+                      value={descripcionUbicacion}
+                      onChange={(e) => setDescripcionUbicacion(e.target.value)}
+                      placeholder={`Ej. ${SUGERENCIA_UBICACION[tipoUbicacion](codigoEsencial || "CODIGO")}`}
+                    />
+                    <div className="mt-2">
+                      <Pastilla onClick={() => setDescripcionUbicacion(SUGERENCIA_UBICACION[tipoUbicacion](codigoEsencial || "CODIGO"))}>
+                        Usar el ejemplo
+                      </Pastilla>
+                    </div>
+                  </Instruccion>
+                </>
+              ) : (
+                <>
+                  <Instruccion numero={1} titulo={esCorreo ? "Revisa que el asunto empiece con tu código" : "Revisa que tu carpeta se llame igual que el código"}>
+                    <CodigoCopiable codigo={codigoEsencial} />
+                  </Instruccion>
+                  <Instruccion numero={2} titulo={esCorreo ? "Anota en qué cuenta o bandeja" : "Anota dónde quedó guardada"}>
+                    <Campo
+                      value={descripcionUbicacion}
+                      onChange={(e) => setDescripcionUbicacion(e.target.value)}
+                      placeholder={`Ej. ${SUGERENCIA_UBICACION[tipoUbicacion](codigoEsencial || "CODIGO")}`}
+                    />
+                  </Instruccion>
+                </>
+              )}
+
+              <div className="flex flex-wrap gap-2">
+                <Ayuda titulo="Más consejos para organizar" icono="📖">
+                  <PasoGuia letra="•" titulo="Si participan varias áreas">
+                    <p>Dentro de 02_DESARROLLO, crea una subcarpeta por área (ej. Area-Biblioteca, Area-TI).</p>
+                  </PasoGuia>
+                  <PasoGuia letra="•" titulo="Nombra los archivos con el código">
+                    <Ejemplo bien>{codigoEsencial || "TU-CODIGO"}_borrador-v1.docx</Ejemplo>
+                    <Ejemplo bien={false}>documento1.docx — no dice qué es</Ejemplo>
+                  </PasoGuia>
+                  <PasoGuia letra="•" titulo="¿Tienes papeles?">
+                    <p>Usa una carpeta física con el MISMO nombre y guárdalos en el mismo orden.</p>
+                  </PasoGuia>
+                  {codigoEsencial && (
+                    <PasoGuia letra="•" titulo={`En “${UBICACION_INFO[tipoUbicacion].etiqueta}”`}>
+                      <p>{UBICACION_AYUDA[tipoUbicacion](codigoEsencial, areaCodigo, categoria)}</p>
+                    </PasoGuia>
+                  )}
+                </Ayuda>
+                <BotonApp color="blanco" tamano="sm" onClick={descargarEstructuraSugerida}>
+                  ⬇️ Descargar la guía
+                </BotonApp>
+              </div>
+            </div>
+          </div>
+
+          <Opcion
+            icono="🏁"
+            titulo={esCorreo ? "Listo, ya sé cómo nombrar mis correos" : "Listo, ya organicé mi carpeta"}
+            texto="Márcalo cuando termines los pasos de arriba"
+            seleccionada={estructuraCreada}
+            onClick={() => setEstructuraCreada((v) => !v)}
+          />
+        </div>
+      )}
+
+      {/* ---------- Paso 6: Alcance ---------- */}
+      {paso === 5 && (
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {ALCANCES.map((a) => (
+              <Opcion
+                key={a.valor}
+                icono={a.icono}
+                titulo={a.titulo}
+                texto={a.texto}
+                seleccionada={nivelAlcance === a.valor}
+                onClick={() => setNivelAlcance(a.valor)}
+              />
             ))}
           </div>
 
           {(nivelAlcance === "INSTITUCION" || nivelAlcance === "REGION") && (
-            <div>
-              <Label>Prefijo de institución (ej. INST, o el código de tu institución)</Label>
-              <Input value={prefijoInstitucion} onChange={(e) => setPrefijoInstitucion(e.target.value.toUpperCase())} />
-            </div>
+            <Campo
+              etiqueta="Prefijo de tu institución"
+              value={prefijoInstitucion}
+              onChange={(e) => setPrefijoInstitucion(e.target.value.toUpperCase())}
+              placeholder="Ej. INST"
+            />
           )}
           {nivelAlcance === "REGION" && (
-            <div>
-              <Label>Prefijo de región (ej. RED)</Label>
-              <Input value={prefijoRed} onChange={(e) => setPrefijoRed(e.target.value.toUpperCase())} />
-            </div>
+            <Campo etiqueta="Prefijo de la red o región" value={prefijoRed} onChange={(e) => setPrefijoRed(e.target.value.toUpperCase())} placeholder="Ej. RED" />
           )}
 
-          <div className="bg-white/40 rounded-md border border-dashed border-ink-faint/50 p-3">
-            <p className="text-xs text-ink-faint uppercase tracking-wide mb-1">Código según el alcance elegido</p>
-            <p className="text-lg font-mono font-semibold text-ink">{codigoSegunAlcance || "— completa los prefijos arriba"}</p>
-          </div>
-        </div>
-      )}
+          <VistaCodigo codigo={codigoSegunAlcance ?? ""} vacio="Completa el prefijo para ver tu código" />
 
-      {paso === 5 && (
-        <div className="space-y-4 rounded-lg p-5" style={{ backgroundColor: colorPaso.bg }}>
-          <InfoBox>Revisa que todo esté correcto antes de guardar. Puedes regresar a cualquier paso sin perder lo que ya escribiste.</InfoBox>
-
-          <div className="bg-ink text-paper rounded-lg p-4 text-center">
-            <p className="text-xs text-paper/60 uppercase tracking-wide mb-1">Tu código</p>
-            <p className="text-2xl font-mono font-semibold">{codigoSegunAlcance || codigoEsencial}</p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <ResumenCampo etiqueta="Área" valor={nombreArea} onEditar={() => setPaso(0)} />
-            <ResumenCampo etiqueta="Categoría" valor={nombreCategoria} onEditar={() => setPaso(1)} />
-            <ResumenCampo etiqueta="Clave" valor={claveInput} onEditar={() => setPaso(2)} />
-          </div>
-
-          <div className="border border-dashed border-ink-faint/50 rounded-md p-3 bg-white/40">
-            <div className="flex justify-between items-center mb-2">
-              <p className="text-xs font-semibold text-ink-soft">Trazabilidad y ubicación</p>
-              <button className="text-xs text-moss-600 hover:underline" onClick={() => setPaso(3)}>
-                Editar
-              </button>
-            </div>
-            <p className="text-sm text-ink">
-              📥 {origen || "—"} → ⚙️ {accion || "—"} → 📤 {destino || "—"} → 🔴 Por iniciar
+          <Ayuda titulo="¿Qué es el alcance?">
+            <p>
+              Si tu trabajo sale de tu área o de tu institución, el código crece con un prefijo para que se siga
+              reconociendo. Elige el que corresponde hoy; puedes cambiarlo después.
             </p>
-            <p className="text-xs text-ink-soft mt-1">{descripcionUbicacion || "sin descripción de ubicación"}</p>
-          </div>
-
-          <div className="border border-dashed border-ink-faint/50 rounded-md p-3 bg-white/40">
-            <div className="flex justify-between items-center mb-2">
-              <p className="text-xs font-semibold text-ink-soft">Escalabilidad</p>
-              <button className="text-xs text-moss-600 hover:underline" onClick={() => setPaso(4)}>
-                Editar
-              </button>
-            </div>
-            <p className="text-sm text-ink">{nivelAlcance}</p>
-          </div>
+          </Ayuda>
         </div>
       )}
 
-      {mostrarListo && (
-        <p className="text-sm font-medium mt-3" style={{ color: COLORES_UI.exito }}>
-          ¡Listo! Puedes continuar al siguiente paso →
-        </p>
+      {/* ---------- Paso 7: Revisar ---------- */}
+      {paso === 6 && (
+        <div className="space-y-3">
+          <VistaCodigo codigo={codigoSegunAlcance || codigoEsencial} grande />
+          <Panel className="bg-white p-0 divide-y divide-line">
+            <FilaResumen icono="🏢" etiqueta="Área" valor={nombreArea} onCambiar={() => setPaso(0)} />
+            <FilaResumen icono="🏷️" etiqueta="Tipo" valor={nombreCategoria} onCambiar={() => setPaso(1)} />
+            <FilaResumen icono="✏️" etiqueta="Nombre" valor={claveInput} onCambiar={() => setPaso(2)} />
+            <FilaResumen
+              icono="🧭"
+              etiqueta="Recorrido"
+              valor={origen && accion && destino ? `${origen} → ${accion} → ${destino}` : ""}
+              onCambiar={() => setPaso(3)}
+            />
+            <FilaResumen
+              icono="📁"
+              etiqueta="Carpeta"
+              valor={`${UBICACION_INFO[tipoUbicacion].etiqueta}${descripcionUbicacion ? ` · ${descripcionUbicacion}` : ""}`}
+              onCambiar={() => setPaso(4)}
+            />
+            <FilaResumen
+              icono="🌎"
+              etiqueta="Alcance"
+              valor={ALCANCES.find((a) => a.valor === nivelAlcance)?.titulo ?? ""}
+              onCambiar={() => setPaso(5)}
+            />
+          </Panel>
+        </div>
       )}
 
-      {error && <p className="text-sm text-terracotta-600 mt-4">{error}</p>}
+      {error && <p className="text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">{error}</p>}
 
-      <div className="flex justify-between mt-6">
-        <Button variant="secondary" onClick={() => setPaso((p) => Math.max(0, p - 1))} disabled={paso === 0}>
-          Atrás
-        </Button>
-        {paso < PASOS.length - 1 ? (
-          <Button onClick={avanzar} disabled={!puedeAvanzar} className={puedeAvanzar ? "animate-pulse" : ""}>
-            Siguiente
-          </Button>
-        ) : (
-          <Button onClick={confirmar} disabled={guardando}>
-            {guardando ? "Guardando..." : "Guardar trabajo"}
-          </Button>
-        )}
+      {/* Barra de acciones, siempre visible abajo */}
+      <div className="sticky bottom-0 -mx-4 sm:mx-0 px-4 sm:px-0 pt-2 pb-4 bg-app/95 backdrop-blur">
+        {!esUltimo && !puedeAvanzar && <p className="text-xs text-ink-soft text-center mb-2">{pasoActual.pista}</p>}
+        <div className="flex gap-3">
+          <BotonApp color="blanco" tamano="lg" onClick={regresar}>
+            {paso === 0 ? "Salir" : "Atrás"}
+          </BotonApp>
+          {!esUltimo ? (
+            <BotonApp tamano="lg" className="flex-1" onClick={avanzar} disabled={!puedeAvanzar}>
+              Siguiente
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+                <path d="m9 6 6 6-6 6" />
+              </svg>
+            </BotonApp>
+          ) : (
+            <BotonApp tamano="lg" className="flex-1" onClick={confirmar} disabled={guardando}>
+              {guardando ? "Guardando..." : "Guardar trabajo"}
+            </BotonApp>
+          )}
+        </div>
       </div>
-    </Card>
+    </div>
+  );
+}
+
+// Muestra cómo queda el código. Con "partes", enseña de qué se arma (Área + Tipo + Nombre).
+function VistaCodigo({
+  codigo,
+  partes,
+  vacio = "Tu código aparecerá aquí",
+  grande = false,
+}: {
+  codigo: string;
+  partes?: { texto: string; clase: string }[];
+  vacio?: string;
+  grande?: boolean;
+}) {
+  return (
+    <div className="rounded-2xl bg-ink text-paper p-4 text-center">
+      <p className="text-[11px] uppercase tracking-wider text-paper/60 mb-1">Así queda tu código</p>
+      <p className={`font-mono font-semibold break-all ${grande ? "text-2xl sm:text-3xl" : "text-lg sm:text-xl"} ${codigo ? "" : "text-paper/40"}`}>
+        {codigo || vacio}
+      </p>
+      {partes && (
+        <div className="flex flex-wrap items-center justify-center gap-1.5 mt-3 text-xs">
+          {partes.map((p, i) => (
+            <span key={i} className="flex items-center gap-1.5">
+              {i > 0 && <span className="text-paper/40">+</span>}
+              <span className={`px-2 py-0.5 rounded-md font-medium ${p.clase}`}>{p.texto}</span>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PreguntaNumerada({ numero, listo, children }: { numero: number; listo: boolean; children: ReactNode }) {
+  return (
+    <Panel className="bg-white flex gap-3">
+      <span
+        aria-hidden="true"
+        className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
+          listo ? "bg-emerald-500 text-white" : "bg-app text-ink-soft"
+        }`}
+      >
+        {listo ? "✓" : numero}
+      </span>
+      <div className="flex-1 min-w-0">{children}</div>
+    </Panel>
+  );
+}
+
+// Instrucción numerada (informativa): número en círculo + qué hacer + lo necesario para hacerlo.
+function Instruccion({ numero, titulo, children }: { numero: number; titulo: string; children: ReactNode }) {
+  return (
+    <div className="flex gap-3">
+      <span aria-hidden="true" className="shrink-0 w-7 h-7 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center text-sm font-bold">
+        {numero}
+      </span>
+      <div className="flex-1 min-w-0 space-y-2">
+        <p className="text-sm font-semibold text-ink pt-0.5">{titulo}</p>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// El código en grande con un botón para copiarlo y pegarlo como nombre de carpeta.
+function CodigoCopiable({ codigo }: { codigo: string }) {
+  const [copiado, setCopiado] = useState(false);
+  async function copiar() {
+    try {
+      await navigator.clipboard.writeText(codigo);
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 1800);
+    } catch {
+      // Si el navegador no deja copiar, el código sigue a la vista para escribirlo a mano.
+    }
+  }
+  return (
+    <div className="flex items-center gap-2 rounded-xl bg-app p-2 pl-4">
+      <span className="flex-1 min-w-0 font-mono font-semibold text-ink break-all">📁 {codigo || "TU-CODIGO"}</span>
+      <BotonApp color={copiado ? "verde" : "blanco"} tamano="sm" onClick={copiar} disabled={!codigo}>
+        {copiado ? "✓ Copiado" : "Copiar"}
+      </BotonApp>
+    </div>
   );
 }
 
 function PasoGuia({ letra, titulo, children }: { letra: string; titulo: string; children: ReactNode }) {
   return (
-    <div className="bg-white/40 border border-dashed border-ink-faint/50 rounded-md p-3">
-      <p className="text-xs font-semibold text-ink mb-1.5">
-        Paso {letra} — {titulo}
+    <div className="space-y-1">
+      <p className="text-sm font-semibold text-ink">
+        {letra}. {titulo}
       </p>
-      <div className="space-y-1">{children}</div>
+      <div className="space-y-1 text-xs">{children}</div>
     </div>
   );
 }
 
-function ResumenCampo({ etiqueta, valor, onEditar }: { etiqueta: string; valor: string; onEditar: () => void }) {
+function FilaResumen({ icono, etiqueta, valor, onCambiar }: { icono: string; etiqueta: string; valor: string; onCambiar: () => void }) {
   return (
-    <div className="border border-dashed border-ink-faint/50 rounded-md p-3 bg-white/40">
-      <div className="flex justify-between items-center mb-1">
-        <p className="text-xs font-semibold text-ink-faint">{etiqueta}</p>
-        <button className="text-xs text-moss-600 hover:underline" onClick={onEditar}>
-          Editar
-        </button>
+    <div className="flex items-center gap-3 px-4 py-3">
+      <span aria-hidden="true" className="shrink-0 text-xl">
+        {icono}
+      </span>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs text-ink-faint">{etiqueta}</p>
+        <p className={`text-sm font-medium break-words ${valor ? "text-ink" : "text-red-600"}`}>{valor || "Falta completar"}</p>
       </div>
-      <p className="text-sm text-ink">{valor || "—"}</p>
+      <BotonApp color="blanco" tamano="sm" onClick={onCambiar}>
+        Cambiar
+      </BotonApp>
     </div>
   );
 }

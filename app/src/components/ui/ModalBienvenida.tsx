@@ -1,7 +1,7 @@
 import { useState, type ChangeEvent } from "react";
 import { useAppStore } from "../../store/useAppStore";
 import { leerArchivoJSON } from "../../storage/exportImport";
-import { Button } from "./Primitives";
+import { Aviso, BotonApp, clasesBoton } from "./Estilo";
 
 const CLAVE_LOCALSTORAGE = "nv_bienvenida_vista";
 
@@ -43,44 +43,41 @@ export function ModalBienvenida({ onCerrar }: { onCerrar: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center p-4 z-50">
-      <div className="bg-surface rounded-lg shadow-lg border border-line max-w-lg w-full p-6 space-y-4">
-        <div className="flex items-center gap-2">
-          <span className="text-xl text-kaki-500">◆</span>
-          <h2 className="text-base font-semibold text-ink">Bienvenido a Nomenclatura Viva</h2>
-        </div>
-        <p className="text-sm text-ink-soft leading-relaxed">
-          Esta app es una <strong className="text-ink">herramienta de acompañamiento</strong>: te ayuda a
-          estructurar, nombrar y documentar tus trabajos con un código corto y trazable. No reemplaza tus archivos
-          ni tus correos.
-        </p>
-        <p className="text-sm text-ink-soft leading-relaxed">
-          <strong className="text-ink">No guarda archivos.</strong> Tú sigues organizando tus carpetas, documentos y
-          correos donde ya los manejas (papel, tu computadora, la nube, tu bandeja de entrada) — esta app solo lleva
-          el registro de nombres, trazabilidad y estado.
-        </p>
-
-        <div className="border-t border-line pt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="border border-line rounded-md p-3">
-            <p className="text-sm font-medium text-ink mb-1">Tengo una configuración previa</p>
-            <p className="text-xs text-ink-soft mb-2">Carga un archivo JSON que ya hayas exportado antes.</p>
-            <label className="inline-block">
-              <span className="px-4 py-2 rounded-md font-medium text-sm bg-moss-600 text-white hover:bg-moss-700 transition-colors cursor-pointer inline-block">
-                {cargando ? "Cargando..." : "Importar archivo"}
-              </span>
-              <input type="file" accept="application/json" className="hidden" onChange={manejarArchivo} disabled={cargando} />
-            </label>
+    <div className="fixed inset-0 bg-ink/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 z-50">
+      <div className="bg-app rounded-3xl shadow-2xl max-w-md w-full p-6 space-y-5">
+        <div className="text-center">
+          <div
+            aria-hidden="true"
+            className="mx-auto w-20 h-20 rounded-full flex items-center justify-center text-5xl"
+            style={{ background: "radial-gradient(circle, rgba(16,185,129,0.22) 0%, rgba(16,185,129,0.08) 55%, transparent 72%)" }}
+          >
+            🌿
           </div>
-          <div className="border border-line rounded-md p-3">
-            <p className="text-sm font-medium text-ink mb-1">Empezar sin configuración</p>
-            <p className="text-xs text-ink-soft mb-2">Arranca desde cero con las categorías de fábrica.</p>
-            <Button variant="secondary" onClick={empezarDeCero}>
-              Crear nuevo
-            </Button>
-          </div>
+          <h2 className="text-2xl font-bold tracking-tight text-ink mt-1">
+            Bienvenido a Nomenclatura <span className="text-emerald-600">Viva</span>
+          </h2>
+          <p className="text-sm text-ink-soft mt-2 leading-relaxed">
+            Te ayuda a ponerle un nombre claro a cada trabajo y darle seguimiento. Tus archivos y correos se quedan donde
+            siempre: aquí solo se lleva el registro.
+          </p>
         </div>
 
-        {error && <p className="text-sm text-terracotta-600">{error}</p>}
+        <div className="space-y-3">
+          <p className="text-sm font-semibold text-ink text-center">¿Cómo quieres empezar?</p>
+          <BotonApp tamano="lg" className="w-full" onClick={empezarDeCero}>
+            ✨ Empezar desde cero
+          </BotonApp>
+          <label className={`${clasesBoton("blanco", "lg")} w-full cursor-pointer ${cargando ? "opacity-60 pointer-events-none" : ""}`}>
+            {cargando ? "Cargando..." : "📂 Ya tengo una copia de respaldo"}
+            <input type="file" accept="application/json" className="sr-only" onChange={manejarArchivo} disabled={cargando} />
+          </label>
+        </div>
+
+        {error && (
+          <Aviso tono="peligro" icono="❌">
+            {error}
+          </Aviso>
+        )}
       </div>
     </div>
   );
