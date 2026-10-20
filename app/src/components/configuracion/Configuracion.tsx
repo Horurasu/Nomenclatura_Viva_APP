@@ -1,10 +1,14 @@
-import { useState, type ReactNode } from "react";
+import { useState, type ChangeEvent, type ReactNode } from "react";
 import { useAppStore } from "../../store/useAppStore";
 import { sanearSegmento } from "../../domain/codigo";
 import { CATEGORIA_ICONOS, EJEMPLOS_AREA } from "../../domain/constants";
-import { Ayuda, BotonApp, Campo, EncabezadoPantalla, Opcion, Panel, Pastilla, Pestanas } from "../ui/Estilo";
+import { esArchivoDeConfiguracion, exportarJSON, generarArchivoTrabajo, leerArchivoJSON, nombreArchivo } from "../../storage/exportImport";
+import type { ArchivoTrabajo } from "../../domain/types";
+import { Aviso, Ayuda, BotonApp, Campo, EncabezadoPantalla, Opcion, Panel, Pastilla, Pestanas, Seccion, clasesBoton } from "../ui/Estilo";
+import { ComoPasarArchivo } from "../ui/ComoPasarArchivo";
+import { PasoNumerado } from "../exportImport/ExportarImportar";
 
-type Pestana = "AREAS" | "TIPOS";
+type Pestana = "AREAS" | "TIPOS" | "COMPARTIR";
 
 function iconoArea(nombre: string): string {
   return EJEMPLOS_AREA.find((e) => e.nombre.toLowerCase() === nombre.toLowerCase())?.icono ?? "🏢";
@@ -16,18 +20,19 @@ export function Configuracion() {
 
   return (
     <div className="w-full max-w-2xl mx-auto flex flex-col gap-5">
-      <EncabezadoPantalla icono="⚙️" color="morado" titulo="Configuración" subtitulo="Las áreas y tipos de trabajo que usas al registrar." />
+      <EncabezadoPantalla icono="⚙️" color="morado" titulo="Configuración" subtitulo="Tus áreas y tipos de trabajo, y cómo pasarlos a otra computadora o a tu equipo." />
 
       <Pestanas<Pestana>
         opciones={[
           { valor: "AREAS", etiqueta: "🏢 Áreas" },
-          { valor: "TIPOS", etiqueta: "🏷️ Tipos de trabajo" },
+          { valor: "TIPOS", etiqueta: "🏷️ Tipos" },
+          { valor: "COMPARTIR", etiqueta: "📦 Llevar o compartir" },
         ]}
         valor={pestana}
         onCambiar={setPestana}
       />
 
-      {pestana === "AREAS" ? <ListaAreas /> : <ListaTipos />}
+      {pestana === "AREAS" ? <ListaAreas /> : pestana === "TIPOS" ? <ListaTipos /> : <CompartirConfiguracion />}
 
       <p className="text-xs text-ink-soft text-center px-4">
         Tu nombre{autorActivo ? ` (${autorActivo})` : ""} aparece como autor en cada trabajo. Para cambiarlo, tócalo
@@ -123,7 +128,14 @@ function ListaAreas() {
           />
           <div className="flex flex-wrap gap-2">
             {EJEMPLOS_AREA.map((ej) => (
-              <Pastilla key={ej.nombre} activa={nombre === ej.nombre} onClick={() => setNombre(ej.nombre)}>
+              <Pastilla
+                key={ej.nombre}
+                activa={nombre === ej.nombre}
+                onClick={() => {
+                  setNombre(ej.nombre);
+                  setCodigo(ej.codigo);
+                }}
+              >
                 {ej.icono} {ej.nombre}
               </Pastilla>
             ))}
@@ -279,6 +291,145 @@ function ListaTipos() {
           editarlos o agregar más. Viajan dentro de tu copia de respaldo.
         </p>
       </Ayuda>
+    </div>
+  );
+}
+
+/* ------------------------- Llevar o compartir (archivo) ------------------------- */
+
+// Pasar solo áreas y tipos a otra computadora, a otro navegador o a un compañero. Al
+// cargarlos se SUMAN a los que ya hay: nunca borra trabajos ni cambia lo que ya existe.
+function CompartirConfiguracion() {
+  const areas = useAppStore((s) => s.areas);
+  const categorias = useAppStore((s) => s.categorias);
+  const autorActivo = useAppStore((s) => s.autorActivo);
+  const agregarConfiguracion = useAppStore((s) => s.agregarConfiguracion);
+  const irA = useAppStore((s) => s.irA);
+
+  const [descargado, setDescargado] = useState<string | null>(null);
+  const [pendiente, setPendiente] = useState<ArchivoTrabajo | null>(null);
+  const [resultado, setResultado] = useState<{ areas: number; categorias: number } | null>(null);
+  const [error, setError] = useState("");
+
+  function construir(): ArchivoTrabajo {
+    return generarArchivoTrabajo({
+      institucion: "",
+      departamentoOArea: "",
+      autorPrincipal: autorActivo || "Sin nombre",
+      areas,
+      categorias,
+      trabajos: [],
+      tipoArchivo: "CONFIGURACION",
+    });
+  }
+
+  async function elegir(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError("");
+    setResultado(null);
+    try {
+      setPendiente(await leerArchivoJSON(file));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo leer el archivo.");
+    }
+    e.target.value = "";
+  }
+
+  async function confirmar() {
+    if (!pendiente) return;
+    setResultado(await agregarConfiguracion(pendiente));
+    setPendiente(null);
+  }
+
+  const nuevasAreas = pendiente ? pendiente.areas.filter((a) => !areas.some((x) => x.codigo === a.codigo)).length : 0;
+  const nuevosTipos = pendiente ? pendiente.categorias.filter((c) => !categorias.some((x) => x.codigo === c.codigo)).length : 0;
+
+  return (
+    <div className="space-y-5">
+      <Panel className="bg-white space-y-2 text-sm text-ink-soft leading-relaxed">
+        <p>
+          <strong className="text-ink">¿Para qué sirve?</strong> Para que <strong>tu equipo use las mismas áreas y tipos</strong> que
+          tú, o para llevarlos a otra computadora o navegador. Así todos arman los códigos igual.
+        </p>
+        <p>
+          Este archivo <strong>no lleva tus trabajos</strong>. ¿Quieres llevar todo?{" "}
+          <button type="button" onClick={() => irA("EXPORTAR_IMPORTAR")} className="font-semibold text-amber-700 underline underline-offset-2">
+            Usa Respaldo
+          </button>
+          .
+        </p>
+      </Panel>
+
+      <Seccion icono="⬇️" titulo="Enviar mis áreas y tipos" subtitulo={`Tienes ${areas.length} áreas y ${categorias.length} tipos.`}>
+        <ol className="space-y-3">
+          <PasoNumerado numero={1} titulo="Descarga el archivo de configuración">
+            <span className="block mt-2">
+              <BotonApp color="morado" onClick={() => setDescargado(exportarJSON(construir()))}>
+                ⬇️ Descargar configuración
+              </BotonApp>
+            </span>
+            {descargado && (
+              <span className="block mt-2 text-xs">
+                ✅ Quedó en <strong>Descargas</strong> como <strong className="font-mono break-all">{descargado}</strong>
+              </span>
+            )}
+          </PasoNumerado>
+          <PasoNumerado numero={2} titulo="Pásalo a la otra computadora o a tu compañero">
+            Elige cómo (si es para un compañero, en vez de a ti mándalo a su correo o WhatsApp):
+          </PasoNumerado>
+        </ol>
+        <ComoPasarArchivo nombreArchivo={descargado ?? nombreArchivo(construir(), "json")} />
+      </Seccion>
+
+      <Seccion icono="⬆️" titulo="Recibir áreas y tipos" subtitulo="En la otra computadora, o si un compañero te mandó su archivo.">
+        <ol className="space-y-3">
+          <PasoNumerado numero={1} titulo="Ten el archivo en esta computadora">
+            Descárgalo de tu correo, WhatsApp, Drive o cópialo de la USB. Su nombre empieza con{" "}
+            <strong className="font-mono">configuracion-nomenclatura-viva_</strong>.
+          </PasoNumerado>
+          <PasoNumerado numero={2} titulo="Toca “Elegir archivo” y búscalo en Descargas">
+            También sirve un archivo de respaldo: solo se toman sus áreas y tipos.
+          </PasoNumerado>
+        </ol>
+
+        {!pendiente ? (
+          <label className={`${clasesBoton("morado", "lg")} w-full cursor-pointer`}>
+            📂 Elegir archivo
+            <input type="file" accept=".json,application/json" onChange={elegir} className="sr-only" />
+          </label>
+        ) : (
+          <div className="space-y-3">
+            <Aviso tono="info" icono="📦">
+              {esArchivoDeConfiguracion(pendiente) ? "Este archivo de configuración" : "Este respaldo"} trae{" "}
+              <strong>
+                {nuevasAreas} {nuevasAreas === 1 ? "área nueva" : "áreas nuevas"} y {nuevosTipos} {nuevosTipos === 1 ? "tipo nuevo" : "tipos nuevos"}
+              </strong>{" "}
+              para ti. Lo que ya tienes no cambia y tus trabajos no se tocan.
+            </Aviso>
+            <div className="flex gap-2">
+              <BotonApp color="morado" className="flex-1" onClick={confirmar} disabled={nuevasAreas + nuevosTipos === 0}>
+                {nuevasAreas + nuevosTipos === 0 ? "No hay nada nuevo" : "Sí, agregarlos"}
+              </BotonApp>
+              <BotonApp color="blanco" onClick={() => setPendiente(null)}>
+                Cancelar
+              </BotonApp>
+            </div>
+          </div>
+        )}
+
+        {resultado && (
+          <Aviso tono="exito" icono="✅">
+            <strong>¡Listo!</strong> Se agregaron {resultado.areas} {resultado.areas === 1 ? "área" : "áreas"} y {resultado.categorias}{" "}
+            {resultado.categorias === 1 ? "tipo" : "tipos"}. Ya aparecen al crear un trabajo.
+          </Aviso>
+        )}
+        {error && (
+          <Aviso tono="peligro" icono="❌">
+            {error}
+          </Aviso>
+        )}
+      </Seccion>
     </div>
   );
 }

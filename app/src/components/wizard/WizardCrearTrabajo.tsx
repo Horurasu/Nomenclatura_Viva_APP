@@ -5,17 +5,18 @@ import {
   ACCIONES_SUGERIDAS,
   CATEGORIA_ICONOS,
   EJEMPLOS_AREA,
-  GENERADOR_CLAVE,
+  EJEMPLOS_NOMBRE,
+  EJEMPLOS_NOMBRE_GENERALES,
   LIMITE_CLAVE,
-  UBICACION_AYUDA,
   UBICACION_INFO,
 } from "../../domain/constants";
 import { construirCodigoEsencial, escalarCodigo, excedeLimiteClave, sanearSegmento } from "../../domain/codigo";
 import type { TipoUbicacion } from "../../domain/types";
 import { Ayuda, BotonApp, Campo, Ejemplo, Opcion, Panel, Pastilla } from "../ui/Estilo";
 import { UbicacionSelector } from "../ui/UbicacionSelector";
+import { CodigoCopiable, GuiaCarpeta, ejemploUbicacion } from "../ui/GuiaCarpeta";
 
-type NivelAlcance = "INTERNO" | "AREA" | "INSTITUCION" | "REGION";
+type NivelAlcance = "AREA" | "INSTITUCION" | "REGION";
 
 // Una pregunta por pantalla. "pista" explica qué falta cuando no se puede avanzar.
 const PASOS: { nombre: string; icono: string; pregunta: string; subtitulo: string; pista: string }[] = [
@@ -36,8 +37,8 @@ const PASOS: { nombre: string; icono: string; pregunta: string; subtitulo: strin
   {
     nombre: "Nombre",
     icono: "✏️",
-    pregunta: "¿Cómo se llama, en corto?",
-    subtitulo: "Un nombre breve y claro para reconocerlo después.",
+    pregunta: "¿Cómo le dices a este trabajo?",
+    subtitulo: "Su nombre en corto: como se lo dirías a un compañero.",
     pista: "Escribe un nombre corto para continuar.",
   },
   {
@@ -47,19 +48,20 @@ const PASOS: { nombre: string; icono: string; pregunta: string; subtitulo: strin
     subtitulo: "Tres respuestas cortas para darle seguimiento.",
     pista: "Responde las tres preguntas para continuar.",
   },
+  // "Quién lo usa" va antes de "Carpeta": así la carpeta se nombra con el código final.
+  {
+    nombre: "Quién lo usa",
+    icono: "🌎",
+    pregunta: "¿Quién más va a usar este trabajo?",
+    subtitulo: "Si sale de tu institución, el código lleva sus siglas al inicio.",
+    pista: "Escribe las siglas que faltan para continuar.",
+  },
   {
     nombre: "Carpeta",
     icono: "📁",
     pregunta: "¿Dónde vas a guardar los archivos?",
     subtitulo: "La app no guarda tus archivos: solo anota dónde están.",
-    pista: "Marca “Listo, ya organicé mi carpeta” para continuar.",
-  },
-  {
-    nombre: "Alcance",
-    icono: "🌎",
-    pregunta: "¿Quién más va a usar este trabajo?",
-    subtitulo: "Si sale de tu área, el código se ajusta solo.",
-    pista: "Escribe el prefijo que falta para continuar.",
+    pista: "Marca “Listo” o elige “Lo hago después” para continuar.",
   },
   {
     nombre: "Revisar",
@@ -71,27 +73,16 @@ const PASOS: { nombre: string; icono: string; pregunta: string; subtitulo: strin
 ];
 
 const ALCANCES: { valor: NivelAlcance; icono: string; titulo: string; texto: string }[] = [
-  { valor: "INTERNO", icono: "👤", titulo: "Solo mi área", texto: "Uso interno, sin prefijo adicional" },
-  { valor: "AREA", icono: "🏢", titulo: "Varias áreas de mi institución", texto: "Se agrega el código del área" },
-  { valor: "INSTITUCION", icono: "🏛️", titulo: "Otras instituciones", texto: "Se agrega un prefijo de institución" },
-  { valor: "REGION", icono: "🌎", titulo: "Una red regional o consorcio", texto: "Se agrega un prefijo de región" },
+  { valor: "AREA", icono: "🏢", titulo: "Solo gente de mi institución", texto: "Lo más común. El código queda como está" },
+  { valor: "INSTITUCION", icono: "🏛️", titulo: "También otras instituciones", texto: "Se agregan las siglas de tu institución" },
+  { valor: "REGION", icono: "🌎", titulo: "Una red regional o consorcio", texto: "Se agregan las siglas de la red" },
 ];
 
-// Primera instrucción del paso "Carpeta", según dónde van a estar los archivos.
-const INSTRUCCION_CREAR: Record<TipoUbicacion, string> = {
-  DIGITAL_LOCAL: "En tu computadora, crea una carpeta con este nombre",
-  NUBE: "En tu Drive u OneDrive, crea una carpeta con este nombre",
-  FISICO: "Consigue un folder o carpeta y rotúlalo con este nombre",
-  CORREO: "Pon este código al inicio del asunto de tus correos",
-  OTRO: "Usa este nombre para identificarlo",
-};
-
-const SUGERENCIA_UBICACION: Record<TipoUbicacion, (codigo: string) => string> = {
-  DIGITAL_LOCAL: (c) => `Documentos/Trabajos-2026/${c}/`,
-  NUBE: (c) => `Mi unidad/Trabajos 2026/${c}`,
-  FISICO: (c) => `Archivero 3, cajón 2, carpeta ${c}`,
-  CORREO: (c) => `Correo institucional, asunto: ${c}`,
-  OTRO: (c) => c,
+// Ejemplos concretos de cada nivel, para reconocer el propio caso.
+const EJEMPLOS_ALCANCE: Record<NivelAlcance, string[]> = {
+  AREA: ["Un manual para tu área", "Un reporte para Dirección", "Un evento interno de la escuela"],
+  INSTITUCION: ["Un convenio con otra universidad", "Un congreso con invitados de fuera", "Un proyecto con una empresa"],
+  REGION: ["Un proyecto de una red de bibliotecas de varios estados", "Un consorcio de universidades", "Un programa de una asociación nacional"],
 };
 
 function iconoArea(nombre: string): string {
@@ -113,9 +104,9 @@ export function WizardCrearTrabajo() {
   const [paso, setPaso] = useState(0);
   const [mostrandoCheck, setMostrandoCheck] = useState(false);
 
-  // Área — si todavía no hay ninguna, el formulario para crear una ya aparece abierto.
+  // Área — se elige de las tuyas, de la lista de ejemplos (un toque) o se escribe otra.
   const [areaCodigo, setAreaCodigo] = useState("");
-  const [mostrarNuevaArea, setMostrarNuevaArea] = useState(() => areasActivas.length === 0);
+  const [mostrarNuevaArea, setMostrarNuevaArea] = useState(false);
   const [nuevaAreaNombre, setNuevaAreaNombre] = useState("");
   const [nuevaAreaCodigo, setNuevaAreaCodigo] = useState("");
   const [nuevaAreaCorreo, setNuevaAreaCorreo] = useState("");
@@ -142,7 +133,7 @@ export function WizardCrearTrabajo() {
   const [tipoUbicacion, setTipoUbicacion] = useState<TipoUbicacion>("DIGITAL_LOCAL");
   const [descripcionUbicacion, setDescripcionUbicacion] = useState("");
   const [estructuraCreada, setEstructuraCreada] = useState(false);
-  const [modoUbicacion, setModoUbicacion] = useState<"YA_CREADA" | "POR_PLANEAR">("POR_PLANEAR");
+  const [modoUbicacion, setModoUbicacion] = useState<"YA_CREADA" | "POR_PLANEAR" | "DESPUES">("POR_PLANEAR");
   const esCorreo = tipoUbicacion === "CORREO";
 
   // Alcance
@@ -153,17 +144,31 @@ export function WizardCrearTrabajo() {
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState("");
 
-  const nombreArea = areasActivas.find((a) => a.codigo === areaCodigo)?.nombre ?? areaCodigo;
+  const nombreArea = areas.find((a) => a.codigo === areaCodigo)?.nombre ?? areaCodigo;
   const nombreCategoria = categoriasActivas.find((c) => c.codigo === categoria)?.nombre ?? categoria;
 
   const niveles = escalarCodigo({ areaCodigo, categoria, clave: claveInput, prefijoInstitucion, prefijoRed });
-  const codigoSegunAlcance =
-    nivelAlcance === "INTERNO" ? niveles.cosa : nivelAlcance === "AREA" ? niveles.area : nivelAlcance === "INSTITUCION" ? niveles.institucion : niveles.region;
+  const codigoSegunAlcance = nivelAlcance === "AREA" ? niveles.area : nivelAlcance === "INSTITUCION" ? niveles.institucion : niveles.region;
+  // El único código que se usa desde "Quién lo usa" en adelante: carpeta, revisión y lista.
+  const codigoFinal = codigoSegunAlcance || codigoEsencial;
+
+  // Ejemplos de área que todavía no están entre tus áreas activas.
+  const areasDisponibles = EJEMPLOS_AREA.filter(
+    (ej) => !areasActivas.some((a) => a.codigo === ej.codigo || a.nombre.toLowerCase() === ej.nombre.toLowerCase()),
+  );
+  const ideasNombre = EJEMPLOS_NOMBRE[categoria] ?? EJEMPLOS_NOMBRE_GENERALES;
 
   // Cada paso empieza arriba, como una pantalla nueva.
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [paso]);
+
+  // Un toque en un ejemplo: se guarda como tu área (si no la tenías) y queda elegida.
+  async function usarAreaEjemplo(ej: (typeof EJEMPLOS_AREA)[number]) {
+    const existente = areas.find((a) => a.codigo === ej.codigo || a.nombre.toLowerCase() === ej.nombre.toLowerCase());
+    const area = existente ?? (await crearArea(ej.nombre, ej.codigo));
+    setAreaCodigo(area.codigo);
+  }
 
   async function confirmarNuevaArea() {
     const codigo = sanearSegmento(nuevaAreaCodigo || nuevaAreaNombre);
@@ -209,9 +214,29 @@ export function WizardCrearTrabajo() {
   }
 
   function descargarEstructuraSugerida() {
-    const raiz = codigoEsencial || "TU-CODIGO";
-    const contenido = `Estructura de carpetas sugerida para ${raiz}\n(generada por Nomenclatura Viva)\n\n${raiz}/\n├── 01_ORIGEN/        de dónde viene este trabajo: solicitudes, requerimientos, notas iniciales\n├── 02_DESARROLLO/    borradores y versiones de trabajo\n├── 03_PRODUCTO/       el resultado final\n└── 04_ENTREGA/        lo que se comparte o entrega\n\nCrea esta misma carpeta raíz "${raiz}" ya sea en tu computadora, en la nube o como carpeta física — así todo lo relacionado con este trabajo queda en un solo lugar, identificado por su código.\n`;
-    saveAs(new Blob([contenido], { type: "text/plain" }), `estructura-sugerida_${raiz}.txt`);
+    const raiz = codigoFinal || "TU-CODIGO";
+    const lugar =
+      tipoUbicacion === "FISICO"
+        ? `Archivero > cajón "${nombreArea}" > folder con la etiqueta ${raiz}`
+        : tipoUbicacion === "NUBE"
+          ? `Mi unidad > Trabajos > ${raiz}`
+          : `Documentos > Trabajos > ${raiz}`;
+    const contenido = `Cómo acomodar "${claveInput}" (código ${raiz})
+Generado por Nomenclatura Viva
+
+DÓNDE: ${lugar}
+
+${raiz}
+  01_ORIGEN       lo que lo pidió: oficios, solicitudes, correos
+  02_DESARROLLO   borradores y avances
+  03_PRODUCTO     el resultado final
+  04_ENTREGA      lo que entregaste y los acuses
+
+CONSEJO: pon el código al inicio de cada archivo, por ejemplo:
+  ${raiz}_borrador.docx
+Así lo encuentras escribiendo el código en el buscador.
+`;
+    saveAs(new Blob([contenido], { type: "text/plain;charset=utf-8" }), `pasos-carpeta_${raiz}.txt`);
   }
 
   async function confirmar() {
@@ -259,12 +284,11 @@ export function WizardCrearTrabajo() {
     (paso === 1 && !!categoria) ||
     (paso === 2 && !!claveInput.trim()) ||
     (paso === 3 && !!origen.trim() && !!accion.trim() && !!destino.trim()) ||
-    (paso === 4 && estructuraCreada) ||
-    (paso === 5 &&
-      (nivelAlcance === "INTERNO" ||
-        nivelAlcance === "AREA" ||
+    (paso === 4 &&
+      (nivelAlcance === "AREA" ||
         (nivelAlcance === "INSTITUCION" && !!prefijoInstitucion.trim()) ||
-        (nivelAlcance === "REGION" && !!prefijoInstitucion.trim() && !!prefijoRed.trim())));
+        (nivelAlcance === "REGION" && !!prefijoInstitucion.trim() && !!prefijoRed.trim()))) ||
+    (paso === 5 && (estructuraCreada || modoUbicacion === "DESPUES"));
 
   return (
     <div className="w-full max-w-2xl mx-auto flex flex-col gap-5">
@@ -306,6 +330,7 @@ export function WizardCrearTrabajo() {
       {/* ---------- Paso 1: Área ---------- */}
       {paso === 0 && (
         <div className="space-y-3">
+          {areasActivas.length > 0 && <p className="text-sm font-semibold text-ink">Tus áreas</p>}
           {areasActivas.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {areasActivas.map((a) => (
@@ -321,8 +346,24 @@ export function WizardCrearTrabajo() {
             </div>
           )}
 
+          {areasDisponibles.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-ink">
+                {areasActivas.length > 0 ? "¿Es otra? Toca la tuya" : "Toca tu área"}
+                <span className="block text-xs font-normal text-ink-soft">Queda guardada para la próxima vez.</span>
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {areasDisponibles.map((ej) => (
+                  <Pastilla key={ej.codigo} onClick={() => usarAreaEjemplo(ej)}>
+                    {ej.icono} {ej.nombre}
+                  </Pastilla>
+                ))}
+              </div>
+            </div>
+          )}
+
           {!mostrarNuevaArea ? (
-            <Opcion punteada icono="➕" titulo="Crear un área nueva" texto="Si la tuya no está en la lista" onClick={() => setMostrarNuevaArea(true)} />
+            <Opcion punteada icono="➕" titulo="¿No aparece? Escríbela" texto="Por ejemplo: Contraloría, Enfermería, Idiomas…" onClick={() => setMostrarNuevaArea(true)} />
           ) : (
             <Panel className="space-y-4 bg-white">
               <p className="font-semibold text-ink">Nueva área</p>
@@ -330,7 +371,7 @@ export function WizardCrearTrabajo() {
                 etiqueta="¿Cómo se llama el área?"
                 value={nuevaAreaNombre}
                 onChange={(e) => setNuevaAreaNombre(e.target.value)}
-                placeholder="Ej. Biblioteca"
+                placeholder="Ej. Contraloría"
                 autoFocus
                 pista={
                   nuevaAreaNombre.trim() ? (
@@ -338,22 +379,18 @@ export function WizardCrearTrabajo() {
                       Su código será: <strong className="font-mono text-ink">{sanearSegmento(nuevaAreaCodigo || nuevaAreaNombre)}</strong>
                     </>
                   ) : (
-                    "El código corto se arma solo con el nombre."
+                    "Escribe el nombre como lo dicen en tu institución. El código corto se arma solo."
                   )
                 }
               />
-              <div>
-                <p className="text-xs font-medium text-ink-soft mb-2">O toca un ejemplo:</p>
-                <div className="flex flex-wrap gap-2">
-                  {EJEMPLOS_AREA.map((ej) => (
-                    <Pastilla key={ej.nombre} activa={nuevaAreaNombre === ej.nombre} onClick={() => setNuevaAreaNombre(ej.nombre)}>
-                      {ej.icono} {ej.nombre}
-                    </Pastilla>
-                  ))}
-                </div>
-              </div>
               <Ayuda titulo="Más opciones (no es obligatorio)" icono="⚙️">
-                <Campo etiqueta="Código corto" value={nuevaAreaCodigo} onChange={(e) => setNuevaAreaCodigo(e.target.value)} placeholder="Ej. BIBLIO" />
+                <Campo
+                  etiqueta="Código corto"
+                  value={nuevaAreaCodigo}
+                  onChange={(e) => setNuevaAreaCodigo(e.target.value)}
+                  placeholder="Ej. CONTRA"
+                  pista="Si el nombre es largo, escribe aquí una abreviatura de 3 a 8 letras."
+                />
                 <Campo
                   etiqueta="Correo de contacto del área"
                   type="email"
@@ -366,11 +403,9 @@ export function WizardCrearTrabajo() {
                 <BotonApp onClick={confirmarNuevaArea} disabled={!nuevaAreaNombre.trim()} className="flex-1">
                   Guardar área
                 </BotonApp>
-                {areasActivas.length > 0 && (
-                  <BotonApp color="blanco" onClick={() => setMostrarNuevaArea(false)}>
-                    Cancelar
-                  </BotonApp>
-                )}
+                <BotonApp color="blanco" onClick={() => setMostrarNuevaArea(false)}>
+                  Cancelar
+                </BotonApp>
               </div>
             </Panel>
           )}
@@ -471,19 +506,51 @@ export function WizardCrearTrabajo() {
       {/* ---------- Paso 3: Nombre corto (clave) ---------- */}
       {paso === 2 && (
         <div className="space-y-4">
+          {/* Qué es y para qué sirve, a la vista (no escondido en una ayuda). */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-ink-soft leading-snug">
+            <p className="flex gap-2">
+              <span aria-hidden="true" className="text-lg leading-none">📌</span>
+              <span>
+                <strong className="text-ink">¿Qué es?</strong> El nombre con el que tú y tu equipo reconocen este trabajo. Por
+                ejemplo: <em>“el catálogo de libros”</em>.
+              </span>
+            </p>
+            <p className="flex gap-2">
+              <span aria-hidden="true" className="text-lg leading-none">🤔</span>
+              <span>
+                <strong className="text-ink">¿Para qué?</strong> Con él se arma el código que llevarán tu carpeta, tus archivos y
+                tus correos. Si es claro, cualquiera lo encuentra después.
+              </span>
+            </p>
+          </div>
+
           <Campo
             value={claveInput}
             onChange={(e) => setClaveInput(e.target.value)}
             maxLength={LIMITE_CLAVE}
-            placeholder="Ej. Catálogo de libros 2026"
+            placeholder={`Ej. ${ideasNombre[0]}`}
             autoFocus
             className="text-lg"
             pista={
               <span className={claveInput.length > LIMITE_CLAVE - 5 ? "text-amber-700 font-semibold" : ""}>
-                {claveInput.length} de {LIMITE_CLAVE} letras
+                {claveInput.length} de {LIMITE_CLAVE} letras · Qué es + de cuándo (año o periodo)
               </span>
             }
           />
+
+          <div className="space-y-2">
+            <p className="text-sm font-semibold text-ink">
+              Ideas para {nombreCategoria ? `“${nombreCategoria}”` : "tu trabajo"}
+              <span className="block text-xs font-normal text-ink-soft">Toca una para usarla y cámbiala a tu gusto.</span>
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {ideasNombre.map((idea) => (
+                <Pastilla key={idea} activa={claveInput === idea} onClick={() => setClaveInput(idea)}>
+                  {idea}
+                </Pastilla>
+              ))}
+            </div>
+          </div>
 
           <VistaCodigo
             partes={[
@@ -494,23 +561,9 @@ export function WizardCrearTrabajo() {
             codigo={codigoEsencial}
           />
 
+          {codigoEsencial && <VistaPrevia codigo={codigoEsencial} nombre={claveInput} />}
+
           <div className="flex flex-wrap gap-2">
-            <Ayuda titulo="¿No se te ocurre? Ver ideas">
-              <p>Toca una idea para usarla y luego ajústala a tu trabajo.</p>
-              <div className="space-y-2.5">
-                {GENERADOR_CLAVE.map((g) => (
-                  <div key={g.categoria} className="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-2.5 first:border-0 first:pt-0">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-ink">{g.categoria}</p>
-                      <p className="text-xs text-ink-faint">{g.ejemplos.slice(0, 4).join(", ")}…</p>
-                    </div>
-                    <Pastilla activa={claveInput === g.ejemploCompleto} onClick={() => setClaveInput(g.ejemploCompleto)}>
-                      Usar {g.ejemploCompleto}
-                    </Pastilla>
-                  </div>
-                ))}
-              </div>
-            </Ayuda>
             <Ayuda titulo="Consejos para un buen nombre" icono="📝">
               <ol className="list-decimal ml-4 space-y-0.5">
                 <li>Piensa en el nombre natural del trabajo.</li>
@@ -565,8 +618,8 @@ export function WizardCrearTrabajo() {
         </div>
       )}
 
-      {/* ---------- Paso 5: Carpeta ---------- */}
-      {paso === 4 && (
+      {/* ---------- Paso 6: Carpeta ---------- */}
+      {paso === 5 && (
         <div className="space-y-5">
           <div className="space-y-2">
             <p className="text-sm font-semibold text-ink">1. ¿Dónde van a estar los archivos?</p>
@@ -575,7 +628,7 @@ export function WizardCrearTrabajo() {
 
           <div className="space-y-2">
             <p className="text-sm font-semibold text-ink">2. {esCorreo ? "¿Ya usas el código en tus correos?" : "¿Ya tienes la carpeta creada?"}</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <Opcion
                 icono="✅"
                 titulo={esCorreo ? "Sí, ya lo uso" : "Sí, ya la tengo"}
@@ -590,79 +643,60 @@ export function WizardCrearTrabajo() {
                 seleccionada={modoUbicacion === "POR_PLANEAR"}
                 onClick={() => setModoUbicacion("POR_PLANEAR")}
               />
+              <Opcion
+                icono="⏰"
+                titulo="Lo hago después"
+                texto="Lo anoto luego en la ficha del trabajo"
+                seleccionada={modoUbicacion === "DESPUES"}
+                onClick={() => setModoUbicacion("DESPUES")}
+              />
             </div>
           </div>
 
+          {modoUbicacion === "DESPUES" ? (
+            <p className="text-sm text-ink-soft flex items-start gap-2 px-1">
+              <span aria-hidden="true">👍</span>
+              <span>
+                Sin problema. Cuando lo tengas, entra a <strong className="text-ink">Mis trabajos</strong>, toca este trabajo y
+                anota dónde quedaron los archivos. Su código será <strong className="font-mono text-ink">{codigoFinal}</strong>.
+              </span>
+            </p>
+          ) : (
+          <>
           <div className="space-y-3">
-            <p className="text-sm font-semibold text-ink">3. {modoUbicacion === "POR_PLANEAR" ? "Haz esto ahora" : "Revisa y anota"}</p>
-            <div className="rounded-2xl bg-white border border-line p-4 space-y-5">
+            <p className="text-sm font-semibold text-ink">
+              3. {modoUbicacion === "POR_PLANEAR" ? `Sigue estos pasos (${UBICACION_INFO[tipoUbicacion].etiqueta.toLowerCase()})` : "Revisa el nombre"}
+            </p>
+            <div className="rounded-2xl bg-white border border-line p-4 space-y-4">
               {modoUbicacion === "POR_PLANEAR" ? (
-                <>
-                  <Instruccion numero={1} titulo={INSTRUCCION_CREAR[tipoUbicacion]}>
-                    <CodigoCopiable codigo={codigoEsencial} />
-                  </Instruccion>
-                  {!esCorreo && (
-                    <Instruccion numero={2} titulo="Dentro, crea estas 4 subcarpetas">
-                      <pre className="bg-ink text-paper/90 rounded-xl p-3 font-mono text-xs overflow-x-auto">
-{`📁 ${codigoEsencial || "TU-CODIGO"}/
-├── 📁 01_ORIGEN/       ← lo que lo pidió o justifica
-├── 📁 02_DESARROLLO/   ← borradores y avances
-├── 📁 03_PRODUCTO/     ← el resultado final
-└── 📁 04_ENTREGA/      ← lo que entregaste`}
-                      </pre>
-                    </Instruccion>
-                  )}
-                  <Instruccion numero={esCorreo ? 2 : 3} titulo={esCorreo ? "Anota en qué cuenta o bandeja" : "Anota dónde la creaste"}>
-                    <Campo
-                      value={descripcionUbicacion}
-                      onChange={(e) => setDescripcionUbicacion(e.target.value)}
-                      placeholder={`Ej. ${SUGERENCIA_UBICACION[tipoUbicacion](codigoEsencial || "CODIGO")}`}
-                    />
-                    <div className="mt-2">
-                      <Pastilla onClick={() => setDescripcionUbicacion(SUGERENCIA_UBICACION[tipoUbicacion](codigoEsencial || "CODIGO"))}>
-                        Usar el ejemplo
-                      </Pastilla>
-                    </div>
-                  </Instruccion>
-                </>
+                <GuiaCarpeta tipo={tipoUbicacion} codigo={codigoFinal} nombre={claveInput} nombreArea={nombreArea} />
               ) : (
-                <>
-                  <Instruccion numero={1} titulo={esCorreo ? "Revisa que el asunto empiece con tu código" : "Revisa que tu carpeta se llame igual que el código"}>
-                    <CodigoCopiable codigo={codigoEsencial} />
-                  </Instruccion>
-                  <Instruccion numero={2} titulo={esCorreo ? "Anota en qué cuenta o bandeja" : "Anota dónde quedó guardada"}>
-                    <Campo
-                      value={descripcionUbicacion}
-                      onChange={(e) => setDescripcionUbicacion(e.target.value)}
-                      placeholder={`Ej. ${SUGERENCIA_UBICACION[tipoUbicacion](codigoEsencial || "CODIGO")}`}
-                    />
-                  </Instruccion>
-                </>
+                <Instruccion numero={1} titulo={esCorreo ? "Revisa que el asunto empiece con este código" : "Revisa que tu carpeta se llame igual que este código"}>
+                  <CodigoCopiable codigo={codigoFinal} />
+                  <p className="text-xs text-ink-soft">Si se llama distinto, cámbiale el nombre: clic derecho en la carpeta → Cambiar nombre → pega el código.</p>
+                </Instruccion>
               )}
-
-              <div className="flex flex-wrap gap-2">
-                <Ayuda titulo="Más consejos para organizar" icono="📖">
-                  <PasoGuia letra="•" titulo="Si participan varias áreas">
-                    <p>Dentro de 02_DESARROLLO, crea una subcarpeta por área (ej. Area-Biblioteca, Area-TI).</p>
-                  </PasoGuia>
-                  <PasoGuia letra="•" titulo="Nombra los archivos con el código">
-                    <Ejemplo bien>{codigoEsencial || "TU-CODIGO"}_borrador-v1.docx</Ejemplo>
-                    <Ejemplo bien={false}>documento1.docx — no dice qué es</Ejemplo>
-                  </PasoGuia>
-                  <PasoGuia letra="•" titulo="¿Tienes papeles?">
-                    <p>Usa una carpeta física con el MISMO nombre y guárdalos en el mismo orden.</p>
-                  </PasoGuia>
-                  {codigoEsencial && (
-                    <PasoGuia letra="•" titulo={`En “${UBICACION_INFO[tipoUbicacion].etiqueta}”`}>
-                      <p>{UBICACION_AYUDA[tipoUbicacion](codigoEsencial, areaCodigo, categoria)}</p>
-                    </PasoGuia>
-                  )}
-                </Ayuda>
+              {!esCorreo && (
                 <BotonApp color="blanco" tamano="sm" onClick={descargarEstructuraSugerida}>
-                  ⬇️ Descargar la guía
+                  ⬇️ Descargar estos pasos
                 </BotonApp>
-              </div>
+              )}
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm font-semibold text-ink">
+              4. {esCorreo ? "Anota en qué correo lo manejas" : "Anota dónde quedó"}
+              <span className="block text-xs font-normal text-ink-soft">Así tú o un compañero lo encuentran sin preguntar.</span>
+            </p>
+            <Campo
+              value={descripcionUbicacion}
+              onChange={(e) => setDescripcionUbicacion(e.target.value)}
+              placeholder={`Ej. ${ejemploUbicacion(tipoUbicacion, codigoFinal, nombreArea)}`}
+            />
+            <Pastilla onClick={() => setDescripcionUbicacion(ejemploUbicacion(tipoUbicacion, codigoFinal, nombreArea))}>
+              Usar el ejemplo
+            </Pastilla>
           </div>
 
           <Opcion
@@ -672,13 +706,15 @@ export function WizardCrearTrabajo() {
             seleccionada={estructuraCreada}
             onClick={() => setEstructuraCreada((v) => !v)}
           />
+          </>
+          )}
         </div>
       )}
 
-      {/* ---------- Paso 6: Alcance ---------- */}
-      {paso === 5 && (
+      {/* ---------- Paso 5: Quién lo usa ---------- */}
+      {paso === 4 && (
         <div className="space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {ALCANCES.map((a) => (
               <Opcion
                 key={a.valor}
@@ -693,31 +729,55 @@ export function WizardCrearTrabajo() {
 
           {(nivelAlcance === "INSTITUCION" || nivelAlcance === "REGION") && (
             <Campo
-              etiqueta="Prefijo de tu institución"
+              etiqueta="Siglas de tu institución"
               value={prefijoInstitucion}
-              onChange={(e) => setPrefijoInstitucion(e.target.value.toUpperCase())}
-              placeholder="Ej. INST"
+              onChange={(e) => setPrefijoInstitucion(sanearSegmento(e.target.value))}
+              placeholder="Ej. UNAM"
+              autoFocus
             />
           )}
           {nivelAlcance === "REGION" && (
-            <Campo etiqueta="Prefijo de la red o región" value={prefijoRed} onChange={(e) => setPrefijoRed(e.target.value.toUpperCase())} placeholder="Ej. RED" />
+            <Campo etiqueta="Siglas de la red o región" value={prefijoRed} onChange={(e) => setPrefijoRed(sanearSegmento(e.target.value))} placeholder="Ej. RED" />
           )}
 
-          <VistaCodigo codigo={codigoSegunAlcance ?? ""} vacio="Completa el prefijo para ver tu código" />
+          {(nivelAlcance === "INSTITUCION" || nivelAlcance === "REGION") && (
+            <div className="rounded-2xl bg-white border border-line p-3 text-xs text-ink-soft space-y-1.5">
+              <p className="font-semibold text-ink text-sm">✍️ Cómo escribir las siglas</p>
+              <p>Usa las letras con que todos conocen a tu institución{nivelAlcance === "REGION" ? " y a la red" : ""}.</p>
+              <Ejemplo bien>UNAM · IPN · UAQ · UMQ{nivelAlcance === "REGION" ? " · ANUIES · REDBIB" : ""}</Ejemplo>
+              <Ejemplo bien={false}>Universidad Nacional Autónoma de México — muy largo</Ejemplo>
+              <p>Los puntos y espacios se quitan solos: “U.N.A.M.” queda como “UNAM”.</p>
+            </div>
+          )}
 
-          <Ayuda titulo="¿Qué es el alcance?">
-            <p>
-              Si tu trabajo sale de tu área o de tu institución, el código crece con un prefijo para que se siga
-              reconociendo. Elige el que corresponde hoy; puedes cambiarlo después.
-            </p>
-          </Ayuda>
+          <VistaCodigo
+            codigo={codigoSegunAlcance ?? ""}
+            vacio="Escribe las siglas para ver tu código"
+            partes={[
+              ...(nivelAlcance === "REGION" ? [{ texto: prefijoRed || "Red", clase: "bg-violet-100 text-violet-800" }] : []),
+              ...(nivelAlcance !== "AREA" ? [{ texto: prefijoInstitucion || "Institución", clase: "bg-rose-100 text-rose-800" }] : []),
+              { texto: nombreArea || "Área", clase: "bg-sky-100 text-sky-800" },
+              { texto: nombreCategoria || "Tipo", clase: "bg-emerald-100 text-emerald-800" },
+              { texto: claveInput || "Nombre", clase: "bg-amber-100 text-amber-800" },
+            ]}
+          />
+
+          <div className="rounded-2xl bg-emerald-50/60 border border-emerald-100 p-3 text-sm text-ink-soft space-y-1">
+            <p className="font-semibold text-ink">Por ejemplo, eliges esta opción si es…</p>
+            <ul className="space-y-0.5">
+              {EJEMPLOS_ALCANCE[nivelAlcance].map((e) => (
+                <li key={e}>• {e}</li>
+              ))}
+            </ul>
+            <p className="text-xs pt-1">¿No estás seguro? Deja “Solo gente de mi institución”. Lo puedes cambiar después en la ficha del trabajo.</p>
+          </div>
         </div>
       )}
 
       {/* ---------- Paso 7: Revisar ---------- */}
       {paso === 6 && (
         <div className="space-y-3">
-          <VistaCodigo codigo={codigoSegunAlcance || codigoEsencial} grande />
+          <VistaCodigo codigo={codigoFinal} grande />
           <Panel className="bg-white p-0 divide-y divide-line">
             <FilaResumen icono="🏢" etiqueta="Área" valor={nombreArea} onCambiar={() => setPaso(0)} />
             <FilaResumen icono="🏷️" etiqueta="Tipo" valor={nombreCategoria} onCambiar={() => setPaso(1)} />
@@ -729,15 +789,19 @@ export function WizardCrearTrabajo() {
               onCambiar={() => setPaso(3)}
             />
             <FilaResumen
-              icono="📁"
-              etiqueta="Carpeta"
-              valor={`${UBICACION_INFO[tipoUbicacion].etiqueta}${descripcionUbicacion ? ` · ${descripcionUbicacion}` : ""}`}
+              icono="🌎"
+              etiqueta="Quién lo usa"
+              valor={ALCANCES.find((a) => a.valor === nivelAlcance)?.titulo ?? ""}
               onCambiar={() => setPaso(4)}
             />
             <FilaResumen
-              icono="🌎"
-              etiqueta="Alcance"
-              valor={ALCANCES.find((a) => a.valor === nivelAlcance)?.titulo ?? ""}
+              icono="📁"
+              etiqueta="Carpeta"
+              valor={
+                modoUbicacion === "DESPUES"
+                  ? "Lo anoto después"
+                  : `${UBICACION_INFO[tipoUbicacion].etiqueta}${descripcionUbicacion ? ` · ${descripcionUbicacion}` : ""}`
+              }
               onCambiar={() => setPaso(5)}
             />
           </Panel>
@@ -803,6 +867,27 @@ function VistaCodigo({
   );
 }
 
+// Muestra dónde va a aparecer el código: carpeta, archivo y asunto de correo.
+function VistaPrevia({ codigo, nombre }: { codigo: string; nombre: string }) {
+  const filas = [
+    { icono: "📁", donde: "Tu carpeta", texto: codigo },
+    { icono: "📄", donde: "Tus archivos", texto: `${codigo}_borrador.docx` },
+    { icono: "✉️", donde: "Tus correos", texto: `${codigo} — ${nombre}` },
+  ];
+  return (
+    <div className="rounded-2xl bg-white border border-line p-3 space-y-1.5">
+      <p className="text-xs font-semibold text-ink-soft">Así se va a ver:</p>
+      {filas.map((f) => (
+        <div key={f.donde} className="flex items-center gap-2 text-xs">
+          <span aria-hidden="true">{f.icono}</span>
+          <span className="shrink-0 w-24 text-ink-faint">{f.donde}</span>
+          <span className="font-mono text-ink truncate">{f.texto}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function PreguntaNumerada({ numero, listo, children }: { numero: number; listo: boolean; children: ReactNode }) {
   return (
     <Panel className="bg-white flex gap-3">
@@ -834,38 +919,6 @@ function Instruccion({ numero, titulo, children }: { numero: number; titulo: str
   );
 }
 
-// El código en grande con un botón para copiarlo y pegarlo como nombre de carpeta.
-function CodigoCopiable({ codigo }: { codigo: string }) {
-  const [copiado, setCopiado] = useState(false);
-  async function copiar() {
-    try {
-      await navigator.clipboard.writeText(codigo);
-      setCopiado(true);
-      setTimeout(() => setCopiado(false), 1800);
-    } catch {
-      // Si el navegador no deja copiar, el código sigue a la vista para escribirlo a mano.
-    }
-  }
-  return (
-    <div className="flex items-center gap-2 rounded-xl bg-app p-2 pl-4">
-      <span className="flex-1 min-w-0 font-mono font-semibold text-ink break-all">📁 {codigo || "TU-CODIGO"}</span>
-      <BotonApp color={copiado ? "verde" : "blanco"} tamano="sm" onClick={copiar} disabled={!codigo}>
-        {copiado ? "✓ Copiado" : "Copiar"}
-      </BotonApp>
-    </div>
-  );
-}
-
-function PasoGuia({ letra, titulo, children }: { letra: string; titulo: string; children: ReactNode }) {
-  return (
-    <div className="space-y-1">
-      <p className="text-sm font-semibold text-ink">
-        {letra}. {titulo}
-      </p>
-      <div className="space-y-1 text-xs">{children}</div>
-    </div>
-  );
-}
 
 function FilaResumen({ icono, etiqueta, valor, onCambiar }: { icono: string; etiqueta: string; valor: string; onCambiar: () => void }) {
   return (

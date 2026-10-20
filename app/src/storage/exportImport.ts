@@ -1,7 +1,7 @@
 import { saveAs } from "file-saver";
 import * as XLSX from "xlsx";
 import { APP_VERSION, VERSION_ESQUEMA } from "../domain/constants";
-import { codigoEsencialDeTrabajo } from "../domain/codigo";
+import { codigoDeTrabajo } from "../domain/codigo";
 import type { Area, ArchivoTrabajo, Categoria, Trabajo } from "../domain/types";
 import { archivoTrabajoSchema } from "../domain/validaciones";
 
@@ -12,7 +12,9 @@ export function generarArchivoTrabajo(params: {
   areas: Area[];
   categorias: Categoria[];
   trabajos: Trabajo[];
+  tipoArchivo?: "RESPALDO" | "CONFIGURACION";
 }): ArchivoTrabajo {
+  const tipoArchivo = params.tipoArchivo ?? "RESPALDO";
   return {
     metadata: {
       institucion: params.institucion,
@@ -21,29 +23,39 @@ export function generarArchivoTrabajo(params: {
       fechaExportacion: new Date().toISOString(),
       versionEsquema: VERSION_ESQUEMA,
       appVersion: APP_VERSION,
+      tipoArchivo,
     },
     areas: params.areas,
     categorias: params.categorias,
-    trabajos: params.trabajos,
+    trabajos: tipoArchivo === "CONFIGURACION" ? [] : params.trabajos,
   };
 }
 
-function nombreArchivo(archivo: ArchivoTrabajo, extension: string): string {
-  const base = archivo.metadata.departamentoOArea.trim() || "trabajo";
-  const fecha = archivo.metadata.fechaExportacion.slice(0, 10);
-  return `nomenclatura-viva_${base}_${fecha}.${extension}`.replace(/\s+/g, "-");
+export function esArchivoDeConfiguracion(archivo: ArchivoTrabajo): boolean {
+  return archivo.metadata.tipoArchivo === "CONFIGURACION";
 }
 
-export function exportarJSON(archivo: ArchivoTrabajo) {
+// Nombres fáciles de reconocer en la carpeta Descargas: dicen qué son y de qué día.
+export function nombreArchivo(archivo: ArchivoTrabajo, extension: "json" | "xlsx"): string {
+  const fecha = archivo.metadata.fechaExportacion.slice(0, 10);
+  if (extension === "xlsx") return `nomenclatura-viva_lista-de-trabajos_${fecha}.xlsx`;
+  const que = esArchivoDeConfiguracion(archivo) ? "configuracion" : "respaldo";
+  return `${que}-nomenclatura-viva_${fecha}.json`;
+}
+
+// Descarga el archivo y devuelve su nombre, para decirle al usuario qué buscar.
+export function exportarJSON(archivo: ArchivoTrabajo): string {
   const blob = new Blob([JSON.stringify(archivo, null, 2)], { type: "application/json" });
-  saveAs(blob, nombreArchivo(archivo, "json"));
+  const nombre = nombreArchivo(archivo, "json");
+  saveAs(blob, nombre);
+  return nombre;
 }
 
 export function exportarExcel(archivo: ArchivoTrabajo) {
   const wb = XLSX.utils.book_new();
 
   const hojaTrabajos = archivo.trabajos.map((t) => ({
-    Codigo: codigoEsencialDeTrabajo(t),
+    Codigo: codigoDeTrabajo(t),
     Descripcion: t.clave,
     Area: t.areaCodigo,
     Categoria: t.categoria,
@@ -93,12 +105,12 @@ export async function leerArchivoJSON(file: File): Promise<ArchivoTrabajo> {
   try {
     json = JSON.parse(texto);
   } catch {
-    throw new Error("El archivo no es un JSON válido.");
+    throw new Error("Ese archivo no es un respaldo de esta app. Busca uno que termine en “.json” y empiece con “respaldo-” o “configuracion-”.");
   }
   const resultado = archivoTrabajoSchema.safeParse(json);
   if (!resultado.success) {
     throw new Error(
-      "El archivo no tiene el formato esperado de Nomenclatura Viva. Detalle: " + resultado.error.message
+      "Ese archivo no es de Nomenclatura Viva o está dañado. Prueba con otro respaldo. (Detalle técnico: " + resultado.error.issues[0]?.message + ")"
     );
   }
   return resultado.data as ArchivoTrabajo;

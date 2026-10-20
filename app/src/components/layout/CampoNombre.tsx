@@ -12,19 +12,18 @@ function iniciales(nombre: string): string {
 
 // Nombre del usuario en la barra superior. Vacío al inicio (con "Nombres Apellidos" de
 // ejemplo); se guarda una sola vez y queda recordado. Si intentas entrar a una sección
-// sin nombre, el campo se sacude y te lo pide.
+// sin nombre, se abre una ventana que te lo pide (ver PedirNombre).
 export function CampoNombre() {
   const autorActivo = useAppStore((s) => s.autorActivo);
   const setAutorActivo = useAppStore((s) => s.setAutorActivo);
-  const solicitudNombre = useAppStore((s) => s.solicitudNombre);
 
   const sinNombre = !autorActivo.trim();
   const [editando, setEditando] = useState(false);
   const [borrador, setBorrador] = useState(autorActivo);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Muestra la validación (sacudida + globito). Se enciende al intentar entrar a una
-  // sección sin nombre, o al borrar el nombre; se apaga al guardar uno válido.
+  // Muestra la validación (sacudida + globito) al borrar el nombre; se apaga al
+  // guardar uno válido.
   const [avisar, setAvisar] = useState(false);
   const [sacudidas, setSacudidas] = useState(0);
 
@@ -33,14 +32,10 @@ export function CampoNombre() {
   const valido = borrador.trim().length >= MINIMO_CARACTERES;
   const pidiendo = sinNombre && avisar;
 
-  // Cada vez que se pide el nombre, enfoca el campo para escribir de inmediato.
+  // Si el nombre se guarda desde otra ventana (bienvenida), el campo lo refleja.
   useEffect(() => {
-    if (solicitudNombre > 0) {
-      setAvisar(true);
-      setSacudidas((n) => n + 1);
-      inputRef.current?.focus();
-    }
-  }, [solicitudNombre]);
+    if (!editando) setBorrador(autorActivo);
+  }, [autorActivo, editando]);
 
   // Dejar el campo vacío está permitido: borra el nombre y vuelve a pedirlo.
   function vaciar() {

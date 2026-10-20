@@ -7,6 +7,7 @@ import { FichaDetalle } from "../detalle/FichaDetalle";
 import { ExportarImportar } from "../exportImport/ExportarImportar";
 import { Configuracion } from "../configuracion/Configuracion";
 import { ModalBienvenida, huboBienvenida } from "../ui/ModalBienvenida";
+import { ModalNombre } from "../ui/PedirNombre";
 import { CampoNombre } from "./CampoNombre";
 
 export function AppShell() {
@@ -34,7 +35,7 @@ export function AppShell() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {mostrarBienvenida && <ModalBienvenida onCerrar={() => setMostrarBienvenida(false)} />}
+      {mostrarBienvenida ? <ModalBienvenida onCerrar={() => setMostrarBienvenida(false)} /> : <ModalNombre />}
 
       <div className="sticky top-0 z-30 bg-app">
         <header className="max-w-3xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">

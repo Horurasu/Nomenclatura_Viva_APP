@@ -2,6 +2,7 @@ import { useState, type ChangeEvent } from "react";
 import { useAppStore } from "../../store/useAppStore";
 import { leerArchivoJSON } from "../../storage/exportImport";
 import { Aviso, BotonApp, clasesBoton } from "./Estilo";
+import { CampoNombreCompleto, limpiarNombre, nombreValido } from "./PedirNombre";
 
 const CLAVE_LOCALSTORAGE = "nv_bienvenida_vista";
 
@@ -16,10 +17,16 @@ function marcarVista() {
 export function ModalBienvenida({ onCerrar }: { onCerrar: () => void }) {
   const reemplazarTodo = useAppStore((s) => s.reemplazarTodo);
   const marcarExportado = useAppStore((s) => s.marcarExportado);
+  const autorActivo = useAppStore((s) => s.autorActivo);
+  const setAutorActivo = useAppStore((s) => s.setAutorActivo);
+  const [nombre, setNombre] = useState(autorActivo);
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(false);
+  const listo = nombreValido(nombre);
 
   function empezarDeCero() {
+    if (!listo) return;
+    setAutorActivo(limpiarNombre(nombre));
     marcarVista();
     onCerrar();
   }
@@ -33,6 +40,7 @@ export function ModalBienvenida({ onCerrar }: { onCerrar: () => void }) {
       const archivo = await leerArchivoJSON(file);
       await reemplazarTodo(archivo);
       marcarExportado();
+      setAutorActivo(limpiarNombre(nombre));
       marcarVista();
       onCerrar();
     } catch (err) {
@@ -62,14 +70,20 @@ export function ModalBienvenida({ onCerrar }: { onCerrar: () => void }) {
           </p>
         </div>
 
+        <CampoNombreCompleto value={nombre} onChange={setNombre} onEnter={empezarDeCero} />
+
         <div className="space-y-3">
-          <p className="text-sm font-semibold text-ink text-center">¿Cómo quieres empezar?</p>
-          <BotonApp tamano="lg" className="w-full" onClick={empezarDeCero}>
+          <p className="text-sm font-semibold text-ink text-center">
+            {listo ? "¿Cómo quieres empezar?" : "Escribe tu nombre para empezar"}
+          </p>
+          <BotonApp tamano="lg" className="w-full" onClick={empezarDeCero} disabled={!listo}>
             ✨ Empezar desde cero
           </BotonApp>
-          <label className={`${clasesBoton("blanco", "lg")} w-full cursor-pointer ${cargando ? "opacity-60 pointer-events-none" : ""}`}>
+          <label
+            className={`${clasesBoton("blanco", "lg")} w-full cursor-pointer ${cargando || !listo ? "opacity-60 pointer-events-none" : ""}`}
+          >
             {cargando ? "Cargando..." : "📂 Ya tengo una copia de respaldo"}
-            <input type="file" accept="application/json" className="sr-only" onChange={manejarArchivo} disabled={cargando} />
+            <input type="file" accept="application/json" className="sr-only" onChange={manejarArchivo} disabled={cargando || !listo} />
           </label>
         </div>
 

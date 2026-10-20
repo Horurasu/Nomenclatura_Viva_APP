@@ -70,6 +70,7 @@ export const archivoTrabajoSchema = z.object({
     fechaExportacion: z.string(),
     versionEsquema: z.string(),
     appVersion: z.string(),
+    tipoArchivo: z.enum(["RESPALDO", "CONFIGURACION"]).optional(),
   }),
   areas: z.array(areaSchema),
   categorias: z.array(categoriaSchema),

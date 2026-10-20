@@ -11,9 +11,10 @@ interface AppState {
   trabajoSeleccionadoId: string | null;
   ultimoTrabajoCreadoId: string | null;
   autorActivo: string;
-  // Sin nombre no se puede entrar a ninguna sección: irA() se detiene y sube este
-  // contador para que el campo de nombre de arriba te lo pida.
-  solicitudNombre: number;
+  // Sin nombre no se puede entrar a ninguna sección: irA() se detiene, recuerda a dónde
+  // ibas y se abre la ventana que pide el nombre. Al guardarlo, te lleva ahí.
+  vistaPendiente: { vista: Vista; trabajoId?: string } | null;
+  cancelarVistaPendiente: () => void;
   areas: Area[];
   categorias: Categoria[];
   trabajos: Trabajo[];
@@ -23,6 +24,7 @@ interface AppState {
   // última exportación), conviene avisarte antes de que los pierdas al cerrar la pestaña.
   haExportadoAlgunaVez: boolean;
   cambiosSinExportar: boolean;
+  fechaUltimoRespaldo: string | null;
   marcarExportado: () => void;
 
   inicializar: () => Promise<void>;
@@ -50,6 +52,9 @@ interface AppState {
   eliminarTrabajo: (id: string) => Promise<void>;
 
   reemplazarTodo: (archivo: ArchivoTrabajo) => Promise<void>;
+  // Suma las áreas y tipos del archivo que todavía no tienes (por código). No toca tus
+  // trabajos ni cambia lo que ya tenías.
+  agregarConfiguracion: (archivo: ArchivoTrabajo) => Promise<{ areas: number; categorias: number }>;
 }
 
 // Solo en desarrollo: abrir la app con "?sin-nombre" en la URL borra el nombre guardado,
@@ -65,17 +70,21 @@ export const useAppStore = create<AppState>((set, get) => ({
   trabajoSeleccionadoId: null,
   ultimoTrabajoCreadoId: null,
   autorActivo: localStorage.getItem("nv_autorActivo") ?? "",
-  solicitudNombre: 0,
+  vistaPendiente: null,
+  cancelarVistaPendiente: () => set({ vistaPendiente: null }),
   areas: [],
   categorias: [],
   trabajos: [],
 
   haExportadoAlgunaVez: localStorage.getItem("nv_haExportadoAlgunaVez") === "true",
   cambiosSinExportar: localStorage.getItem("nv_cambiosSinExportar") !== "false",
+  fechaUltimoRespaldo: localStorage.getItem("nv_fechaUltimoRespaldo"),
   marcarExportado: () => {
+    const ahora = new Date().toISOString();
     localStorage.setItem("nv_haExportadoAlgunaVez", "true");
     localStorage.setItem("nv_cambiosSinExportar", "false");
-    set({ haExportadoAlgunaVez: true, cambiosSinExportar: false });
+    localStorage.setItem("nv_fechaUltimoRespaldo", ahora);
+    set({ haExportadoAlgunaVez: true, cambiosSinExportar: false, fechaUltimoRespaldo: ahora });
   },
 
   inicializar: async () => {
@@ -121,16 +130,18 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   irA: (vista, trabajoId) => {
     if (vista !== "INICIO" && !get().autorActivo.trim()) {
-      set({ solicitudNombre: get().solicitudNombre + 1 });
+      set({ vistaPendiente: { vista, trabajoId } });
       return;
     }
-    set({ vista, trabajoSeleccionadoId: trabajoId ?? null });
+    set({ vista, trabajoSeleccionadoId: trabajoId ?? null, vistaPendiente: null });
   },
 
-  // Guardar el nombre no cambia de sección: te deja donde estás.
+  // Guardar el nombre te deja donde estás, o te lleva a la sección que intentabas abrir.
   setAutorActivo: (nombre) => {
     localStorage.setItem("nv_autorActivo", nombre);
     set({ autorActivo: nombre });
+    const pendiente = get().vistaPendiente;
+    if (pendiente && nombre.trim()) get().irA(pendiente.vista, pendiente.trabajoId);
   },
 
   limpiarUltimoTrabajoCreado: () => set({ ultimoTrabajoCreadoId: null }),
@@ -246,5 +257,27 @@ export const useAppStore = create<AppState>((set, get) => ({
       vista: "TABLERO",
       cambiosSinExportar: false,
     });
+  },
+
+  agregarConfiguracion: async (archivo) => {
+    const { areas, categorias } = get();
+    const idsUsados = new Set([...areas, ...categorias].map((x) => x.id));
+    // Si el id ya existe (otro registro con distinto código), se le da uno nuevo.
+    const conIdLibre = <T extends { id: string }>(x: T): T => (idsUsados.has(x.id) ? { ...x, id: crypto.randomUUID() } : x);
+    const codigosArea = new Set(areas.map((a) => a.codigo));
+    const codigosCat = new Set(categorias.map((c) => c.codigo));
+    const nuevasAreas = archivo.areas.filter((a) => !codigosArea.has(a.codigo)).map(conIdLibre);
+    const nuevasCats = archivo.categorias.filter((c) => !codigosCat.has(c.codigo)).map(conIdLibre);
+    await db.transaction("rw", db.areas, db.categorias, async () => {
+      await db.areas.bulkAdd(nuevasAreas);
+      await db.categorias.bulkAdd(nuevasCats);
+    });
+    if (nuevasAreas.length || nuevasCats.length) localStorage.setItem("nv_cambiosSinExportar", "true");
+    set({
+      areas: [...areas, ...nuevasAreas],
+      categorias: [...categorias, ...nuevasCats],
+      cambiosSinExportar: get().cambiosSinExportar || nuevasAreas.length + nuevasCats.length > 0,
+    });
+    return { areas: nuevasAreas.length, categorias: nuevasCats.length };
   },
 }));

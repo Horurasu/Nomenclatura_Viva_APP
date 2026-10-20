@@ -89,6 +89,8 @@ export interface ArchivoTrabajo {
     fechaExportacion: string;
     versionEsquema: string;
     appVersion: string;
+    // "CONFIGURACION" = solo áreas y tipos (sin trabajos). Sin valor = respaldo completo.
+    tipoArchivo?: "RESPALDO" | "CONFIGURACION";
   };
   areas: Area[];
   categorias: Categoria[];

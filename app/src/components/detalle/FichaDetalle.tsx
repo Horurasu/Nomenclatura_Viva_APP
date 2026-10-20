@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useAppStore } from "../../store/useAppStore";
-import { asuntoCorreoSugerido, codigoEsencialDeTrabajo } from "../../domain/codigo";
-import { CATEGORIA_ICONOS, LIMITE_CLAVE, SEMAFORO_INFO, UBICACION_AYUDA, UBICACION_INFO } from "../../domain/constants";
+import { asuntoCorreoSugerido, codigoDeTrabajo } from "../../domain/codigo";
+import { CATEGORIA_ICONOS, LIMITE_CLAVE, SEMAFORO_INFO, UBICACION_INFO } from "../../domain/constants";
 import type { EstadoSemaforo } from "../../domain/types";
-import { Ayuda, BotonApp, Campo, Opcion, Seccion, Selector, clasesBoton } from "../ui/Estilo";
+import { Aviso, Ayuda, BotonApp, Campo, Opcion, Seccion, Selector, clasesBoton } from "../ui/Estilo";
 import { SemaforoBadge } from "../dashboard/SemaforoBadge";
 import { UbicacionSelector } from "../ui/UbicacionSelector";
+import { GuiaCarpeta, ejemploUbicacion } from "../ui/GuiaCarpeta";
 import { EscalabilidadView } from "./EscalabilidadView";
 
 const ESTADOS: { estado: EstadoSemaforo; texto: string }[] = [
@@ -42,7 +43,7 @@ export function FichaDetalle() {
     );
   }
 
-  const codigoEsencial = codigoEsencialDeTrabajo(trabajo);
+  const codigo = codigoDeTrabajo(trabajo);
   const areaActual = areas.find((a) => a.codigo === trabajo.areaCodigo);
   const categoriaActual = categorias.find((c) => c.codigo === trabajo.categoria);
   const correoContacto = areaActual?.correoContacto;
@@ -72,7 +73,7 @@ export function FichaDetalle() {
         </span>
         <div className="flex-1 min-w-0">
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-ink leading-tight break-words">{trabajo.clave}</h1>
-          <p className="font-mono text-sm text-ink-soft break-all mt-0.5">{codigoEsencial}</p>
+          <p className="font-mono text-sm text-ink-soft break-all mt-0.5">{codigo}</p>
           <div className="flex flex-wrap items-center gap-2 mt-2">
             <SemaforoBadge estado={trabajo.ficha.estadoActual} />
             <span className="text-xs text-ink-faint">
@@ -84,7 +85,15 @@ export function FichaDetalle() {
       </div>
 
       {/* Estado */}
+      {/* La nota va antes de los estados: primero escribes qué pasó, luego tocas el estado. */}
       <Seccion icono="🚦" titulo="¿Cómo va este trabajo?" subtitulo="Toca el estado para cambiarlo.">
+        <Campo
+          etiqueta="¿Qué pasó? (opcional)"
+          placeholder="Ej. Ya se entregó el primer borrador"
+          value={notaCambio}
+          onChange={(e) => setNotaCambio(e.target.value)}
+          pista="Escríbelo antes de tocar el nuevo estado: se guarda en el historial junto con el cambio."
+        />
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {ESTADOS.map(({ estado, texto }) => (
             <Opcion
@@ -97,13 +106,6 @@ export function FichaDetalle() {
             />
           ))}
         </div>
-        <Campo
-          etiqueta="Nota para el cambio (opcional)"
-          placeholder="Ej. Ya se entregó el primer borrador"
-          value={notaCambio}
-          onChange={(e) => setNotaCambio(e.target.value)}
-          pista="Se guarda junto con el siguiente cambio de estado."
-        />
       </Seccion>
 
       {/* Datos principales */}
@@ -153,18 +155,24 @@ export function FichaDetalle() {
 
       {/* Archivos */}
       <Seccion icono="📁" titulo="¿Dónde están los archivos?" subtitulo="La app no guarda tus archivos: solo anota dónde están.">
+        {!trabajo.ubicacion.descripcion.trim() && (
+          <Aviso tono="cuidado" icono="⏰">
+            Todavía no anotas dónde están los archivos. Crea la carpeta <strong className="font-mono">{codigo}</strong> y escribe abajo
+            dónde quedó.
+          </Aviso>
+        )}
         <UbicacionSelector
           value={trabajo.ubicacion.tipo}
           onChange={(tipo) => actualizarTrabajo(trabajo.id, { ubicacion: { ...trabajo.ubicacion, tipo } })}
         />
         <Campo
           etiqueta="¿En qué carpeta o lugar exacto?"
-          placeholder={`Ej. Documentos/Trabajos-2026/${codigoEsencial}/`}
+          placeholder={`Ej. ${ejemploUbicacion(trabajo.ubicacion.tipo, codigo, areaActual?.nombre ?? trabajo.areaCodigo)}`}
           value={trabajo.ubicacion.descripcion}
           onChange={(e) => actualizarTrabajo(trabajo.id, { ubicacion: { ...trabajo.ubicacion, descripcion: e.target.value } })}
         />
-        <Ayuda titulo={`Cómo organizarlo en “${UBICACION_INFO[trabajo.ubicacion.tipo].etiqueta}”`}>
-          <p>{UBICACION_AYUDA[trabajo.ubicacion.tipo](codigoEsencial, trabajo.areaCodigo, trabajo.categoria)}</p>
+        <Ayuda titulo={`Cómo acomodarlo paso a paso (${UBICACION_INFO[trabajo.ubicacion.tipo].etiqueta.toLowerCase()})`} icono="🧭">
+          <GuiaCarpeta tipo={trabajo.ubicacion.tipo} codigo={codigo} nombre={trabajo.clave} nombreArea={areaActual?.nombre ?? trabajo.areaCodigo} />
         </Ayuda>
       </Seccion>
 

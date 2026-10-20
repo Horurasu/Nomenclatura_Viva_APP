@@ -21,6 +21,20 @@ export function codigoEsencialDeTrabajo(t: { areaCodigo: string; categoria: stri
   return construirCodigoEsencial(t.areaCodigo, t.categoria, sanearSegmento(t.clave));
 }
 
+// El código que el trabajo usa de verdad: el esencial más los prefijos que tenga
+// (institución y red). Es el que se muestra en la lista, la ficha, la carpeta y el correo.
+export function codigoDeTrabajo(t: {
+  areaCodigo: string;
+  categoria: string;
+  clave: string;
+  prefijoInstitucion?: string;
+  prefijoRed?: string;
+}): string {
+  const institucion = t.prefijoInstitucion?.trim();
+  const red = institucion ? t.prefijoRed?.trim() : undefined;
+  return [red, institucion, codigoEsencialDeTrabajo(t)].filter(Boolean).join("-");
+}
+
 export interface NivelesEscalabilidad {
   cosa: string;
   area: string;
@@ -51,8 +65,8 @@ export function excedeLimiteClave(clave: string): boolean {
 
 // Asunto sugerido para correos sobre este trabajo: incluye el código (para poder
 // buscar y filtrar el hilo después) y la descripción legible.
-export function asuntoCorreoSugerido(t: { areaCodigo: string; categoria: string; clave: string }): string {
-  return `${codigoEsencialDeTrabajo(t)} — ${t.clave}`;
+export function asuntoCorreoSugerido(t: Parameters<typeof codigoDeTrabajo>[0]): string {
+  return `${codigoDeTrabajo(t)} — ${t.clave}`;
 }
 
 // Mismo código de categoría → siempre el mismo color, sin necesidad de guardarlo.

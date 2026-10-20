@@ -34,18 +34,49 @@ export const CATEGORIA_ICONOS: Record<string, string> = {
   APOYO: "🛠️",
 };
 
-// Ejemplos ilustrativos de áreas típicas en una institución educativa — solo para
-// ayudar a imaginar de dónde "salen" las áreas; no son obligatorios ni exhaustivos.
-export const EJEMPLOS_AREA = [
-  { icono: "📚", nombre: "Biblioteca" },
-  { icono: "💼", nombre: "Administración" },
-  { icono: "👥", nombre: "Recursos Humanos" },
-  { icono: "📢", nombre: "Comunicación" },
-  { icono: "🎓", nombre: "Servicios Escolares" },
-  { icono: "💻", nombre: "Tecnologías de Información" },
-  { icono: "🔬", nombre: "Investigación" },
-  { icono: "🤝", nombre: "Vinculación" },
+// Áreas típicas de una institución educativa, listas para tocar y usar. Cada una trae
+// un código corto y fácil de leer (en vez de "RECURSOSHUMANOS", "RH").
+export const EJEMPLOS_AREA: { icono: string; nombre: string; codigo: string }[] = [
+  { icono: "🏛️", nombre: "Dirección General", codigo: "DIR" },
+  { icono: "🎓", nombre: "Coordinación Académica", codigo: "ACAD" },
+  { icono: "📝", nombre: "Servicios Escolares", codigo: "ESCOLAR" },
+  { icono: "📚", nombre: "Biblioteca", codigo: "BIBLIO" },
+  { icono: "💼", nombre: "Administración", codigo: "ADMIN" },
+  { icono: "💰", nombre: "Finanzas y Contabilidad", codigo: "FIN" },
+  { icono: "🛒", nombre: "Compras", codigo: "COMPRAS" },
+  { icono: "👥", nombre: "Recursos Humanos", codigo: "RH" },
+  { icono: "⚖️", nombre: "Jurídico", codigo: "JUR" },
+  { icono: "📢", nombre: "Comunicación", codigo: "COMUN" },
+  { icono: "📣", nombre: "Promoción y Admisiones", codigo: "ADMISION" },
+  { icono: "💻", nombre: "Tecnologías de Información", codigo: "TI" },
+  { icono: "🔬", nombre: "Investigación", codigo: "INVEST" },
+  { icono: "🎓", nombre: "Posgrado", codigo: "POSGRADO" },
+  { icono: "📖", nombre: "Educación Continua", codigo: "EDCONT" },
+  { icono: "🤝", nombre: "Vinculación", codigo: "VINC" },
+  { icono: "🌍", nombre: "Internacionalización", codigo: "INTER" },
+  { icono: "🙋", nombre: "Servicio Social y Prácticas", codigo: "SERVSOC" },
+  { icono: "🧑‍🎓", nombre: "Egresados", codigo: "EGRESADOS" },
+  { icono: "🧠", nombre: "Psicopedagogía", codigo: "PSICO" },
+  { icono: "🎭", nombre: "Cultura", codigo: "CULTURA" },
+  { icono: "⚽", nombre: "Deportes", codigo: "DEPORTES" },
+  { icono: "🧪", nombre: "Laboratorios", codigo: "LAB" },
+  { icono: "📊", nombre: "Planeación y Calidad", codigo: "PLAN" },
+  { icono: "🔧", nombre: "Mantenimiento", codigo: "MANT" },
 ];
+
+// Ideas de "nombre corto" según el tipo de trabajo elegido: frases naturales, como se
+// le diría a un compañero, para tocarlas y ajustarlas.
+export const EJEMPLOS_NOMBRE: Record<string, string[]> = {
+  PROY: ["Catálogo de libros 2026", "Página web del área", "Manual de bienvenida"],
+  CONV: ["Convenio Hospital Central", "Convenio de prácticas 2026", "Acuerdo Biblioteca Estatal"],
+  COLAB: ["Red de bibliotecas del Bajío", "Profesor visitante 2026", "Seminario con la UAQ"],
+  PROD: ["Informe anual 2025", "Reporte de encuesta", "Artículo sobre lectura"],
+  DIVU: ["Video Día del Libro", "Ponencia congreso 2026", "Campaña redes octubre"],
+  ACAD: ["Plan de estudios 2027", "Horarios otoño 2026", "Registro materia Ética"],
+  ADM: ["Presupuesto 2026", "Inventario de equipo", "Compra de mobiliario"],
+  APOYO: ["Carteles para RH", "Soporte a Comunicación", "Evento de egresados"],
+};
+export const EJEMPLOS_NOMBRE_GENERALES = ["Reporte mensual", "Evento fin de año 2026", "Proyecto principal"];
 
 export const SEMAFORO_INFO: Record<EstadoSemaforo, { emoji: string; etiqueta: string; bg: string; texto: string }> = {
   ROJO: { emoji: "🔴", etiqueta: "Por iniciar", bg: "#fee2e2", texto: "#991b1b" },
@@ -74,93 +105,11 @@ export const COLORES_UI = {
 } as const;
 
 export const UBICACION_INFO: Record<TipoUbicacion, { icono: string; etiqueta: string; descripcion: string }> = {
-  FISICO: { icono: "🗄️", etiqueta: "Físico", descripcion: "Papel, archivero, carpeta física" },
-  DIGITAL_LOCAL: { icono: "💻", etiqueta: "Digital local", descripcion: "Tu computadora o un servidor propio" },
-  NUBE: { icono: "☁️", etiqueta: "Nube", descripcion: "Drive, OneDrive, SharePoint..." },
-  CORREO: { icono: "📧", etiqueta: "Correo electrónico", descripcion: "Vive en una bandeja, no en una carpeta" },
+  FISICO: { icono: "🗄️", etiqueta: "En papel", descripcion: "Folders y archivero" },
+  DIGITAL_LOCAL: { icono: "💻", etiqueta: "Mi computadora", descripcion: "Carpetas en Documentos" },
+  NUBE: { icono: "☁️", etiqueta: "En la nube", descripcion: "Google Drive u OneDrive" },
+  CORREO: { icono: "📧", etiqueta: "Mi correo", descripcion: "Todo se maneja por correo" },
   OTRO: { icono: "📌", etiqueta: "Otro", descripcion: "Cualquier otro medio" },
-};
-
-// Generador de ideas para la Clave: categorías de trabajo típicas, cada una con un
-// formato sugerido y un ejemplo completo listo para usar como punto de partida.
-export interface FormatoClave {
-  categoria: string;
-  ejemplos: string[];
-  formato: string;
-  comoSeConstruye: string;
-  ejemploCompleto: string;
-  etiquetaBoton: string;
-}
-
-// Importante: estos son EJEMPLOS de partida, no reglas fijas — cada quien los adapta a
-// su propio trabajo. El formato es una sugerencia para ordenar la idea, no un molde
-// obligatorio.
-export const GENERADOR_CLAVE: FormatoClave[] = [
-  {
-    categoria: "Eventos académicos",
-    ejemplos: ["CONGRESO", "JORNADA", "SEMINARIO", "TALLER", "WEBINAR", "COLOQUIO"],
-    formato: "[TIPO]-[AÑO]",
-    comoSeConstruye: "Empieza con el tipo de evento y agrega el año — así distingues ediciones futuras del mismo evento.",
-    ejemploCompleto: "CONGRESO-2025",
-    etiquetaBoton: "Usar formato para eventos",
-  },
-  {
-    categoria: "Correos y comunicados",
-    ejemplos: ["CIRCULAR", "AVISO", "CONVOCATORIA", "INVITACION", "RECORDATORIO"],
-    formato: "[TIPO]-[DESTINATARIO]",
-    comoSeConstruye: "Empieza con el tipo de comunicado y agrega a quién va dirigido — así sabes de qué trataba sin abrirlo.",
-    ejemploCompleto: "CIRCULAR-DOCENTES",
-    etiquetaBoton: "Usar formato para comunicados",
-  },
-  {
-    categoria: "Documentos administrativos",
-    ejemplos: ["SOLICITUD", "REPORTE", "MEMORANDUM", "OFICIO", "ACTA"],
-    formato: "[TIPO]-[AREA]",
-    comoSeConstruye: "Empieza con el tipo de documento y agrega el área a la que corresponde o involucra.",
-    ejemploCompleto: "SOLICITUD-BIBLIO",
-    etiquetaBoton: "Usar formato para administrativos",
-  },
-  {
-    categoria: "Productos digitales",
-    ejemplos: ["VIDEO", "PODCAST", "ENTRADA-BLOG", "INFOGRAFIA", "PRESENTACION"],
-    formato: "[MEDIO]-[TEMA]",
-    comoSeConstruye: "Empieza con el tipo de medio y agrega el tema que trata — útil cuando produces varios del mismo tipo.",
-    ejemploCompleto: "VIDEO-CATALOGO",
-    etiquetaBoton: "Usar formato para digitales",
-  },
-  {
-    categoria: "Proyectos de área",
-    ejemplos: ["CATALOGO", "MANUAL", "GUIA", "PLAN", "PROGRAMA"],
-    formato: "[PRODUCTO]-[VERSION]",
-    comoSeConstruye: "Empieza con el nombre del producto y agrega su versión — así distingues borradores de la versión final.",
-    ejemploCompleto: "MANUAL-v1",
-    etiquetaBoton: "Usar formato para proyectos",
-  },
-  {
-    categoria: "Apoyo a otras áreas",
-    ejemplos: ["SOPORTE-TI", "INSUMO-DISEÑO", "TICKET-MANTENIMIENTO"],
-    formato: "[TIPO]-[AREA-DESTINO]",
-    comoSeConstruye: "Empieza con el tipo de apoyo que das y agrega a qué área se lo diste.",
-    ejemploCompleto: "SOPORTE-ACAD",
-    etiquetaBoton: "Usar formato para apoyos",
-  },
-];
-
-// Ayuda basada en la metodología (§27): incluso sin herramientas, se puede aplicar la
-// Nomenclatura Viva nombrando carpetas y archivos con el código. Usa el área y la
-// categoría del propio trabajo para sugerir una estructura concreta de carpetas —
-// física, digital o en la nube— y no solo para archivos: un correo también cuenta.
-export const UBICACION_AYUDA: Record<TipoUbicacion, (codigo: string, areaCodigo: string, categoria: string) => string> = {
-  FISICO: (codigo, area, categoria) =>
-    `Organiza tus archiveros como el código: un cajón o carpeta colgante para el área "${area}", y dentro divisores por categoría (ej. "${categoria}"). Guarda el documento ahí y etiquétalo con "${codigo}" bien visible en el lomo o la portada, para reconocerlo sin abrirlo.`,
-  DIGITAL_LOCAL: (codigo, area, categoria) =>
-    `Crea una carpeta por área y, dentro, una subcarpeta por categoría: /${area}/${categoria}/. Guarda el archivo ahí nombrado igual que el código, por ejemplo "${codigo}.pdf" o "${codigo}.docx" — así lo encuentras con solo buscar ese texto en tu computadora.`,
-  NUBE: (codigo, area, categoria) =>
-    `Usa la misma lógica en tu Drive/OneDrive: una carpeta raíz por área ("${area}") y, dentro, una por categoría ("${categoria}"). Nombra el archivo o la subcarpeta como "${codigo}" — cualquier compañero con acceso lo encuentra buscando ese texto, sin importar cómo tenga organizada su propia vista.`,
-  CORREO: (codigo) =>
-    `Un correo no vive en una carpeta, vive en una bandeja — aquí lo importante es el asunto, no dónde lo guardas. Usa siempre "${codigo}" como parte del asunto de tus correos sobre este trabajo (la sección "Correo y trazabilidad" más abajo te arma el asunto completo). Así encuentras todo el hilo buscando ese texto, sin importar cuántas respuestas tenga.`,
-  OTRO: (codigo) =>
-    `Anota junto al trabajo, con tus propias palabras, cómo encontrarlo — usa "${codigo}" como referencia para que quede buscable sin importar el medio.`,
 };
 
 // Paleta para distinguir categorías con un color consistente (mismo código → mismo color

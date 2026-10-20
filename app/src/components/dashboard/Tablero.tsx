@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAppStore } from "../../store/useAppStore";
-import { codigoEsencialDeTrabajo } from "../../domain/codigo";
+import { codigoDeTrabajo } from "../../domain/codigo";
 import { CATEGORIA_ICONOS, SEMAFORO_INFO } from "../../domain/constants";
 import type { EstadoSemaforo, Trabajo } from "../../domain/types";
 import { Aviso, BotonApp, Campo, EncabezadoPantalla, Pastilla, Pestanas, Selector } from "../ui/Estilo";
@@ -82,7 +82,7 @@ export function Tablero() {
     const texto = busqueda.toLowerCase();
     const dias = FECHAS.find((f) => f.valor === filtroFecha)?.dias;
     return trabajos.filter((t) => {
-      const codigo = codigoEsencialDeTrabajo(t).toLowerCase();
+      const codigo = codigoDeTrabajo(t).toLowerCase();
       return (
         (!texto || codigo.includes(texto) || t.clave.toLowerCase().includes(texto)) &&
         (!filtroArea || t.areaCodigo === filtroArea) &&
@@ -319,7 +319,7 @@ function TarjetaTrabajo({
             <SemaforoBadge estado={t.ficha.estadoActual} />
           </span>
         </span>
-        <span className="block font-mono text-xs text-ink-faint truncate mt-0.5">{codigoEsencialDeTrabajo(t)}</span>
+        <span className="block font-mono text-xs text-ink-faint truncate mt-0.5">{codigoDeTrabajo(t)}</span>
         <span className="block text-xs text-ink-soft mt-1.5">
           {nombreCategoria} · Actualizado {fecha.toLocaleDateString("es-MX", { day: "numeric", month: "short" })}
           {", "}
