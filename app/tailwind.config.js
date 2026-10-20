@@ -10,9 +10,25 @@ export default {
           "20%, 60%": { transform: "translateX(-6px)" },
           "40%, 80%": { transform: "translateX(6px)" },
         },
+        // Explicación de bienvenida: las piezas de cada dibujo van apareciendo.
+        aparecer: {
+          "0%": { opacity: "0", transform: "translateY(12px) scale(0.92)" },
+          "100%": { opacity: "1", transform: "translateY(0) scale(1)" },
+        },
+        flotar: {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-6px)" },
+        },
+        tocar: {
+          "0%, 100%": { transform: "translate(0, 0)" },
+          "50%": { transform: "translate(-3px, -5px)" },
+        },
       },
       animation: {
         sacudir: "sacudir 0.4s ease-in-out",
+        aparecer: "aparecer 0.45s ease-out both",
+        flotar: "flotar 2.4s ease-in-out infinite",
+        tocar: "tocar 0.9s ease-in-out infinite",
       },
       colors: {
         // Paleta cálida y apagada (estilo minimalista), en vez de los colores

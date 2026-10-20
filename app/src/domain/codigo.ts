@@ -69,6 +69,18 @@ export function asuntoCorreoSugerido(t: Parameters<typeof codigoDeTrabajo>[0]): 
   return `${codigoDeTrabajo(t)} — ${t.clave}`;
 }
 
+// Nombre de un documento dentro de un trabajo:
+//   CODIGO_TIPO-NNN_DESCRIPCION_AAAA-MM-DD   →   ESCOLAR-TRAM-CURPS2026_ACTA-001_ANA-LOPEZ_2026-10-20
+// Empieza con el código (se encuentra con el buscador) y el consecutivo lo ordena solo.
+export function nombreDocumento(params: { codigo: string; tipo: string; numero: number; descripcion: string; fecha: string }): string {
+  const descripcion = params.descripcion
+    .split(/\s+/)
+    .map(sanearSegmento)
+    .filter(Boolean)
+    .join("-");
+  return [params.codigo, `${params.tipo}-${String(params.numero).padStart(3, "0")}`, descripcion, params.fecha].filter(Boolean).join("_");
+}
+
 // Mismo código de categoría → siempre el mismo color, sin necesidad de guardarlo.
 export function colorParaCategoria(codigoCategoria: string): string {
   let hash = 0;

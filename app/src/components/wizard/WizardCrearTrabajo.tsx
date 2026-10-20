@@ -61,7 +61,7 @@ const PASOS: { nombre: string; icono: string; pregunta: string; subtitulo: strin
     icono: "📁",
     pregunta: "¿Dónde vas a guardar los archivos?",
     subtitulo: "La app no guarda tus archivos: solo anota dónde están.",
-    pista: "Marca “Listo” o elige “Lo hago después” para continuar.",
+    pista: "Sigue los pasos y marca “Listo” para continuar.",
   },
   {
     nombre: "Revisar",
@@ -73,16 +73,42 @@ const PASOS: { nombre: string; icono: string; pregunta: string; subtitulo: strin
 ];
 
 const ALCANCES: { valor: NivelAlcance; icono: string; titulo: string; texto: string }[] = [
-  { valor: "AREA", icono: "🏢", titulo: "Solo gente de mi institución", texto: "Lo más común. El código queda como está" },
-  { valor: "INSTITUCION", icono: "🏛️", titulo: "También otras instituciones", texto: "Se agregan las siglas de tu institución" },
-  { valor: "REGION", icono: "🌎", titulo: "Una red regional o consorcio", texto: "Se agregan las siglas de la red" },
+  { valor: "AREA", icono: "🏢", titulo: "Solo gente de mi institución", texto: "Tú y tus compañeros. Lo más común" },
+  { valor: "INSTITUCION", icono: "🏛️", titulo: "También otras instituciones", texto: "Lo compartes con otra escuela, empresa o dependencia" },
+  { valor: "REGION", icono: "🌎", titulo: "Una red regional o consorcio", texto: "Varias instituciones trabajan juntas en él" },
 ];
 
-// Ejemplos concretos de cada nivel, para reconocer el propio caso.
-const EJEMPLOS_ALCANCE: Record<NivelAlcance, string[]> = {
-  AREA: ["Un manual para tu área", "Un reporte para Dirección", "Un evento interno de la escuela"],
-  INSTITUCION: ["Un convenio con otra universidad", "Un congreso con invitados de fuera", "Un proyecto con una empresa"],
-  REGION: ["Un proyecto de una red de bibliotecas de varios estados", "Un consorcio de universidades", "Un programa de una asociación nacional"],
+// Ejemplos concretos de cada nivel, para reconocer el propio caso, y por qué cambia el código.
+const EJEMPLOS_ALCANCE: Record<NivelAlcance, { casos: string[]; porque: string }> = {
+  AREA: {
+    casos: [
+      "El inventario de la biblioteca de este año",
+      "El reporte mensual que le entregas a Dirección",
+      "Las CURPs de los alumnos de nuevo ingreso",
+      "El festival de fin de cursos de la escuela",
+    ],
+    porque: "Todos en tu institución saben de dónde viene, así que el código no necesita más.",
+  },
+  INSTITUCION: {
+    casos: [
+      "Un convenio de prácticas profesionales con una empresa",
+      "Un congreso que organizas junto con otra universidad",
+      "Los oficios que mandas a la Secretaría de Educación",
+      "Un proyecto de investigación con un hospital o un municipio",
+    ],
+    porque:
+      "Los archivos van a llegar a manos de otra institución. Las siglas de la tuya al inicio dicen de dónde salieron, aunque allá tengan un área con el mismo nombre.",
+  },
+  REGION: {
+    casos: [
+      "El catálogo compartido de una red de bibliotecas de varios estados",
+      "Un programa de ANUIES en el que participan muchas universidades",
+      "Un evento de todas las escuelas de tu congregación o sistema en el país",
+      "Un proyecto estatal donde varias escuelas entregan a la misma autoridad",
+    ],
+    porque:
+      "Muchas instituciones mandan sus archivos al mismo lugar. Las siglas de la red y luego las de tu institución evitan que se revuelvan con los de las demás.",
+  },
 };
 
 function iconoArea(nombre: string): string {
@@ -94,12 +120,17 @@ export function WizardCrearTrabajo() {
   const categorias = useAppStore((s) => s.categorias);
   const autorActivo = useAppStore((s) => s.autorActivo);
   const crearArea = useAppStore((s) => s.crearArea);
+  const actualizarArea = useAppStore((s) => s.actualizarArea);
+  const desactivarArea = useAppStore((s) => s.desactivarArea);
   const crearCategoria = useAppStore((s) => s.crearCategoria);
+  const actualizarCategoria = useAppStore((s) => s.actualizarCategoria);
+  const desactivarCategoria = useAppStore((s) => s.desactivarCategoria);
   const crearTrabajo = useAppStore((s) => s.crearTrabajo);
   const irA = useAppStore((s) => s.irA);
 
   const areasActivas = areas.filter((a) => a.activa);
   const categoriasActivas = categorias.filter((c) => c.activa);
+  const categoriasQuitadas = categorias.filter((c) => !c.activa);
 
   const [paso, setPaso] = useState(0);
   const [mostrandoCheck, setMostrandoCheck] = useState(false);
@@ -133,7 +164,7 @@ export function WizardCrearTrabajo() {
   const [tipoUbicacion, setTipoUbicacion] = useState<TipoUbicacion>("DIGITAL_LOCAL");
   const [descripcionUbicacion, setDescripcionUbicacion] = useState("");
   const [estructuraCreada, setEstructuraCreada] = useState(false);
-  const [modoUbicacion, setModoUbicacion] = useState<"YA_CREADA" | "POR_PLANEAR" | "DESPUES">("POR_PLANEAR");
+  const [modoUbicacion, setModoUbicacion] = useState<"YA_CREADA" | "POR_PLANEAR">("POR_PLANEAR");
   const esCorreo = tipoUbicacion === "CORREO";
 
   // Alcance
@@ -152,10 +183,16 @@ export function WizardCrearTrabajo() {
   // El único código que se usa desde "Quién lo usa" en adelante: carpeta, revisión y lista.
   const codigoFinal = codigoSegunAlcance || codigoEsencial;
 
-  // Ejemplos de área que todavía no están entre tus áreas activas.
-  const areasDisponibles = EJEMPLOS_AREA.filter(
-    (ej) => !areasActivas.some((a) => a.codigo === ej.codigo || a.nombre.toLowerCase() === ej.nombre.toLowerCase()),
-  );
+  // Lo que se puede subir a "Tus áreas": ejemplos que aún no tienes, más las áreas
+  // propias que quitaste (para poder regresarlas con un toque).
+  const coincide = (a: { codigo: string; nombre: string }, b: { codigo: string; nombre: string }) =>
+    a.codigo === b.codigo || a.nombre.toLowerCase() === b.nombre.toLowerCase();
+  const areasDisponibles = [
+    ...EJEMPLOS_AREA,
+    ...areas
+      .filter((a) => !a.activa && !EJEMPLOS_AREA.some((ej) => coincide(ej, a)))
+      .map((a) => ({ icono: iconoArea(a.nombre), nombre: a.nombre, codigo: a.codigo })),
+  ].filter((ej) => !areasActivas.some((a) => coincide(a, ej)));
   const ideasNombre = EJEMPLOS_NOMBRE[categoria] ?? EJEMPLOS_NOMBRE_GENERALES;
 
   // Cada paso empieza arriba, como una pantalla nueva.
@@ -163,17 +200,37 @@ export function WizardCrearTrabajo() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [paso]);
 
-  // Un toque en un ejemplo: se guarda como tu área (si no la tenías) y queda elegida.
+  // Un toque en un ejemplo: se guarda como tu área (si no la tenías, o la regresa si la
+  // habías quitado) y queda elegida.
   async function usarAreaEjemplo(ej: (typeof EJEMPLOS_AREA)[number]) {
-    const existente = areas.find((a) => a.codigo === ej.codigo || a.nombre.toLowerCase() === ej.nombre.toLowerCase());
+    const existente = areas.find((a) => coincide(a, ej));
+    if (existente && !existente.activa) await actualizarArea(existente.id, { activa: true });
     const area = existente ?? (await crearArea(ej.nombre, ej.codigo));
     setAreaCodigo(area.codigo);
+  }
+
+  // Quitar no borra nada: el área baja a las opciones y los trabajos que la usan siguen igual.
+  async function quitarArea(id: string, codigo: string) {
+    await desactivarArea(id);
+    if (areaCodigo === codigo) setAreaCodigo("");
+  }
+
+  async function quitarCategoria(id: string, codigo: string) {
+    await desactivarCategoria(id);
+    if (categoria === codigo) setCategoria("");
+  }
+
+  async function regresarCategoria(id: string, codigo: string) {
+    await actualizarCategoria(id, { activa: true });
+    setCategoria(codigo);
   }
 
   async function confirmarNuevaArea() {
     const codigo = sanearSegmento(nuevaAreaCodigo || nuevaAreaNombre);
     if (!codigo || !nuevaAreaNombre.trim()) return;
-    const area = await crearArea(nuevaAreaNombre.trim(), codigo, nuevaAreaCorreo.trim() || undefined);
+    const quitada = areas.find((a) => !a.activa && a.codigo === codigo);
+    if (quitada) await actualizarArea(quitada.id, { activa: true });
+    const area = quitada ?? (await crearArea(nuevaAreaNombre.trim(), codigo, nuevaAreaCorreo.trim() || undefined));
     setAreaCodigo(area.codigo);
     setMostrarNuevaArea(false);
     setNuevaAreaNombre("");
@@ -184,13 +241,17 @@ export function WizardCrearTrabajo() {
   async function confirmarNuevaCategoria() {
     const codigo = sanearSegmento(nuevaCatCodigo || nuevaCatNombre);
     if (!codigo || !nuevaCatNombre.trim()) return;
-    const cat = await crearCategoria({
-      nombre: nuevaCatNombre.trim(),
-      codigo,
-      deDondeViene: nuevaCatDeDonde.trim(),
-      aDondeVa: nuevaCatADonde.trim(),
-      correoContacto: nuevaCatCorreo.trim() || undefined,
-    });
+    const quitada = categoriasQuitadas.find((c) => c.codigo === codigo);
+    if (quitada) await actualizarCategoria(quitada.id, { activa: true });
+    const cat =
+      quitada ??
+      (await crearCategoria({
+        nombre: nuevaCatNombre.trim(),
+        codigo,
+        deDondeViene: nuevaCatDeDonde.trim(),
+        aDondeVa: nuevaCatADonde.trim(),
+        correoContacto: nuevaCatCorreo.trim() || undefined,
+      }));
     setCategoria(cat.codigo);
     setMostrarNuevaCategoria(false);
     setNuevaCatNombre("");
@@ -288,7 +349,7 @@ Así lo encuentras escribiendo el código en el buscador.
       (nivelAlcance === "AREA" ||
         (nivelAlcance === "INSTITUCION" && !!prefijoInstitucion.trim()) ||
         (nivelAlcance === "REGION" && !!prefijoInstitucion.trim() && !!prefijoRed.trim()))) ||
-    (paso === 5 && (estructuraCreada || modoUbicacion === "DESPUES"));
+    (paso === 5 && estructuraCreada);
 
   return (
     <div className="w-full max-w-2xl mx-auto flex flex-col gap-5">
@@ -330,7 +391,12 @@ Así lo encuentras escribiendo el código en el buscador.
       {/* ---------- Paso 1: Área ---------- */}
       {paso === 0 && (
         <div className="space-y-3">
-          {areasActivas.length > 0 && <p className="text-sm font-semibold text-ink">Tus áreas</p>}
+          {areasActivas.length > 0 && (
+            <p className="text-sm font-semibold text-ink">
+              Tus áreas
+              <span className="block text-xs font-normal text-ink-soft">¿Te sobra alguna? Toca “Quitar” y baja a las opciones de abajo.</span>
+            </p>
+          )}
           {areasActivas.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {areasActivas.map((a) => (
@@ -341,6 +407,7 @@ Así lo encuentras escribiendo el código en el buscador.
                   texto={`Código: ${a.codigo}`}
                   seleccionada={areaCodigo === a.codigo}
                   onClick={() => setAreaCodigo(a.codigo)}
+                  onQuitar={() => quitarArea(a.id, a.codigo)}
                 />
               ))}
             </div>
@@ -350,12 +417,12 @@ Así lo encuentras escribiendo el código en el buscador.
             <div className="space-y-2">
               <p className="text-sm font-semibold text-ink">
                 {areasActivas.length > 0 ? "¿Es otra? Toca la tuya" : "Toca tu área"}
-                <span className="block text-xs font-normal text-ink-soft">Queda guardada para la próxima vez.</span>
+                <span className="block text-xs font-normal text-ink-soft">Al tocarla sube a “Tus áreas” y queda guardada para la próxima vez.</span>
               </p>
               <div className="flex flex-wrap gap-2">
                 {areasDisponibles.map((ej) => (
                   <Pastilla key={ej.codigo} onClick={() => usarAreaEjemplo(ej)}>
-                    {ej.icono} {ej.nombre}
+                    <span aria-hidden="true">⬆️</span> {ej.icono} {ej.nombre}
                   </Pastilla>
                 ))}
               </div>
@@ -433,9 +500,26 @@ Así lo encuentras escribiendo el código en el buscador.
                 texto={c.deDondeViene && c.aDondeVa ? `${c.deDondeViene} → ${c.aDondeVa}` : `Código: ${c.codigo}`}
                 seleccionada={categoria === c.codigo}
                 onClick={() => setCategoria(c.codigo)}
+                onQuitar={() => quitarCategoria(c.id, c.codigo)}
               />
             ))}
           </div>
+
+          {categoriasQuitadas.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-ink">
+                Tipos que quitaste
+                <span className="block text-xs font-normal text-ink-soft">Toca uno para regresarlo arriba.</span>
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {categoriasQuitadas.map((c) => (
+                  <Pastilla key={c.id} onClick={() => regresarCategoria(c.id, c.codigo)}>
+                    <span aria-hidden="true">⬆️</span> {CATEGORIA_ICONOS[c.codigo] ?? "🏷️"} {c.nombre}
+                  </Pastilla>
+                ))}
+              </div>
+            </div>
+          )}
 
           {!mostrarNuevaCategoria ? (
             <Opcion punteada icono="➕" titulo="Crear un tipo nuevo" texto="Si ninguno describe tu trabajo" onClick={() => setMostrarNuevaCategoria(true)} />
@@ -521,6 +605,24 @@ Así lo encuentras escribiendo el código en el buscador.
                 <strong className="text-ink">¿Para qué?</strong> Con él se arma el código que llevarán tu carpeta, tus archivos y
                 tus correos. Si es claro, cualquiera lo encuentra después.
               </span>
+            </p>
+          </div>
+
+          {/* Trabajo = el proceso o expediente (la carpeta). Los documentos van adentro. */}
+          <div className="rounded-2xl bg-sky-50/70 border border-sky-100 p-3 text-sm text-ink-soft space-y-2 leading-snug">
+            <p className="font-semibold text-ink">🗂️ ¿Un trabajo es un proceso o un documento?</p>
+            <p>
+              Un <strong className="text-ink">trabajo</strong> es el <strong>proceso o expediente completo</strong>: la carpeta donde
+              juntas todo. Los <strong className="text-ink">documentos</strong> (actas, oficios, listas, fotos) van <strong>dentro</strong>{" "}
+              y también llevan el código.
+            </p>
+            <div className="rounded-xl bg-white border border-sky-100 px-3 py-2 font-mono text-xs text-ink space-y-0.5 overflow-x-auto">
+              <p className="whitespace-nowrap">📁 CURPs 2026 <span className="font-sans text-ink-soft">← el trabajo (lo registras aquí)</span></p>
+              <p className="whitespace-nowrap pl-5">📄 Acta de nacimiento de Ana <span className="font-sans text-ink-soft">← documento</span></p>
+              <p className="whitespace-nowrap pl-5">📄 Acta de nacimiento de Luis <span className="font-sans text-ink-soft">← documento</span></p>
+            </div>
+            <p className="text-xs">
+              Registra aquí el trabajo. Después, en su ficha, la app te arma el nombre de cada documento.
             </p>
           </div>
 
@@ -628,7 +730,7 @@ Así lo encuentras escribiendo el código en el buscador.
 
           <div className="space-y-2">
             <p className="text-sm font-semibold text-ink">2. {esCorreo ? "¿Ya usas el código en tus correos?" : "¿Ya tienes la carpeta creada?"}</p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Opcion
                 icono="✅"
                 titulo={esCorreo ? "Sí, ya lo uso" : "Sí, ya la tengo"}
@@ -643,26 +745,9 @@ Así lo encuentras escribiendo el código en el buscador.
                 seleccionada={modoUbicacion === "POR_PLANEAR"}
                 onClick={() => setModoUbicacion("POR_PLANEAR")}
               />
-              <Opcion
-                icono="⏰"
-                titulo="Lo hago después"
-                texto="Lo anoto luego en la ficha del trabajo"
-                seleccionada={modoUbicacion === "DESPUES"}
-                onClick={() => setModoUbicacion("DESPUES")}
-              />
             </div>
           </div>
 
-          {modoUbicacion === "DESPUES" ? (
-            <p className="text-sm text-ink-soft flex items-start gap-2 px-1">
-              <span aria-hidden="true">👍</span>
-              <span>
-                Sin problema. Cuando lo tengas, entra a <strong className="text-ink">Mis trabajos</strong>, toca este trabajo y
-                anota dónde quedaron los archivos. Su código será <strong className="font-mono text-ink">{codigoFinal}</strong>.
-              </span>
-            </p>
-          ) : (
-          <>
           <div className="space-y-3">
             <p className="text-sm font-semibold text-ink">
               3. {modoUbicacion === "POR_PLANEAR" ? `Sigue estos pasos (${UBICACION_INFO[tipoUbicacion].etiqueta.toLowerCase()})` : "Revisa el nombre"}
@@ -706,8 +791,15 @@ Así lo encuentras escribiendo el código en el buscador.
             seleccionada={estructuraCreada}
             onClick={() => setEstructuraCreada((v) => !v)}
           />
-          </>
-          )}
+
+          <p className="text-sm text-ink-soft flex items-start gap-2 px-1">
+            <span aria-hidden="true">📄</span>
+            <span>
+              <strong className="text-ink">¿Y los documentos de adentro?</strong> Actas, oficios, listas… Cuando guardes este trabajo,
+              entra a su ficha en <strong className="text-ink">Mis trabajos</strong> → <strong className="text-ink">“Documentos”</strong> y la
+              app te arma el nombre de cada uno.
+            </span>
+          </p>
         </div>
       )}
 
@@ -765,10 +857,22 @@ Así lo encuentras escribiendo el código en el buscador.
           <div className="rounded-2xl bg-emerald-50/60 border border-emerald-100 p-3 text-sm text-ink-soft space-y-1">
             <p className="font-semibold text-ink">Por ejemplo, eliges esta opción si es…</p>
             <ul className="space-y-0.5">
-              {EJEMPLOS_ALCANCE[nivelAlcance].map((e) => (
+              {EJEMPLOS_ALCANCE[nivelAlcance].casos.map((e) => (
                 <li key={e}>• {e}</li>
               ))}
             </ul>
+            <p className="pt-1">
+              <strong className="text-ink">¿Por qué?</strong> {EJEMPLOS_ALCANCE[nivelAlcance].porque}
+            </p>
+            {nivelAlcance !== "AREA" && (
+              <p className="text-xs">
+                Así queda, por ejemplo:{" "}
+                <strong className="font-mono text-ink break-all">
+                  {nivelAlcance === "REGION" ? "REDBIB-" : ""}UMQ-BIBLIO-PROY-CATALOGO2026
+                </strong>
+                {nivelAlcance === "REGION" ? " (red + institución + tu código)" : " (institución + tu código)"}
+              </p>
+            )}
             <p className="text-xs pt-1">¿No estás seguro? Deja “Solo gente de mi institución”. Lo puedes cambiar después en la ficha del trabajo.</p>
           </div>
         </div>
@@ -797,11 +901,7 @@ Así lo encuentras escribiendo el código en el buscador.
             <FilaResumen
               icono="📁"
               etiqueta="Carpeta"
-              valor={
-                modoUbicacion === "DESPUES"
-                  ? "Lo anoto después"
-                  : `${UBICACION_INFO[tipoUbicacion].etiqueta}${descripcionUbicacion ? ` · ${descripcionUbicacion}` : ""}`
-              }
+              valor={`${UBICACION_INFO[tipoUbicacion].etiqueta}${descripcionUbicacion ? ` · ${descripcionUbicacion}` : ""}`}
               onCambiar={() => setPaso(5)}
             />
           </Panel>

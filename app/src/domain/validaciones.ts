@@ -47,6 +47,18 @@ export const fichaTrazabilidadSchema = z.object({
   historialEstados: z.array(cambioEstadoSchema),
 });
 
+export const documentoSchema = z.object({
+  id: z.string(),
+  tipo: z.string(),
+  numero: z.number(),
+  descripcion: z.string(),
+  fecha: z.string(),
+  subcarpeta: z.string(),
+  nombre: z.string(),
+  autor: z.string(),
+  fechaRegistro: z.string(),
+});
+
 export const trabajoSchema = z.object({
   id: z.string(),
   areaCodigo: z.string(),
@@ -56,6 +68,7 @@ export const trabajoSchema = z.object({
   prefijoRed: z.string().optional(),
   ficha: fichaTrazabilidadSchema,
   ubicacion: ubicacionSchema,
+  documentos: z.array(documentoSchema).optional(),
   autorCreacion: z.string(),
   fechaCreacion: z.string(),
   autorUltimaEdicion: z.string(),

@@ -8,6 +8,7 @@ import { SemaforoBadge } from "../dashboard/SemaforoBadge";
 import { UbicacionSelector } from "../ui/UbicacionSelector";
 import { GuiaCarpeta, ejemploUbicacion } from "../ui/GuiaCarpeta";
 import { EscalabilidadView } from "./EscalabilidadView";
+import { DocumentosTrabajo } from "./DocumentosTrabajo";
 
 const ESTADOS: { estado: EstadoSemaforo; texto: string }[] = [
   { estado: "ROJO", texto: "Todavía no empieza" },
@@ -174,6 +175,15 @@ export function FichaDetalle() {
         <Ayuda titulo={`Cómo acomodarlo paso a paso (${UBICACION_INFO[trabajo.ubicacion.tipo].etiqueta.toLowerCase()})`} icono="🧭">
           <GuiaCarpeta tipo={trabajo.ubicacion.tipo} codigo={codigo} nombre={trabajo.clave} nombreArea={areaActual?.nombre ?? trabajo.areaCodigo} />
         </Ayuda>
+      </Seccion>
+
+      {/* Documentos de adentro: el trabajo es la carpeta; esto nombra cada archivo. */}
+      <Seccion
+        icono="📄"
+        titulo="Documentos"
+        subtitulo={`Actas, oficios, listas… el nombre de cada archivo, listo para copiar. ${(trabajo.documentos ?? []).length} anotado(s).`}
+      >
+        <DocumentosTrabajo trabajo={trabajo} />
       </Seccion>
 
       {/* Opciones menos usadas: plegadas */}

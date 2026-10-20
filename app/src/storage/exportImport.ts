@@ -35,12 +35,32 @@ export function esArchivoDeConfiguracion(archivo: ArchivoTrabajo): boolean {
   return archivo.metadata.tipoArchivo === "CONFIGURACION";
 }
 
-// Nombres fáciles de reconocer en la carpeta Descargas: dicen qué son y de qué día.
+// Fecha local (no UTC): de noche, toISOString() ya diría "mañana".
+function fechaLocal(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+// Cuántas copias de este tipo se han descargado en ese día (para numerar v1, v2, v3…).
+function claveVersiones(que: string, fecha: string) {
+  return `nv_versiones_${que}_${fecha}`;
+}
+
+function versionesDelDia(que: string, fecha: string): number {
+  try {
+    return Number(localStorage.getItem(claveVersiones(que, fecha))) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+// Nombres fáciles de reconocer en la carpeta Descargas: dicen qué son, de qué día y qué
+// versión del día (si respaldas dos veces el mismo día, la v2 es la más nueva).
 export function nombreArchivo(archivo: ArchivoTrabajo, extension: "json" | "xlsx"): string {
-  const fecha = archivo.metadata.fechaExportacion.slice(0, 10);
+  const fecha = fechaLocal(archivo.metadata.fechaExportacion);
   if (extension === "xlsx") return `nomenclatura-viva_lista-de-trabajos_${fecha}.xlsx`;
   const que = esArchivoDeConfiguracion(archivo) ? "configuracion" : "respaldo";
-  return `${que}-nomenclatura-viva_${fecha}.json`;
+  return `${que}-nomenclatura-viva_${fecha}_v${versionesDelDia(que, fecha) + 1}.json`;
 }
 
 // Descarga el archivo y devuelve su nombre, para decirle al usuario qué buscar.
@@ -48,6 +68,13 @@ export function exportarJSON(archivo: ArchivoTrabajo): string {
   const blob = new Blob([JSON.stringify(archivo, null, 2)], { type: "application/json" });
   const nombre = nombreArchivo(archivo, "json");
   saveAs(blob, nombre);
+  const que = esArchivoDeConfiguracion(archivo) ? "configuracion" : "respaldo";
+  const fecha = fechaLocal(archivo.metadata.fechaExportacion);
+  try {
+    localStorage.setItem(claveVersiones(que, fecha), String(versionesDelDia(que, fecha) + 1));
+  } catch {
+    // Sin almacenamiento solo se pierde la numeración; el archivo ya se descargó.
+  }
   return nombre;
 }
 
@@ -71,6 +98,19 @@ export function exportarExcel(archivo: ArchivoTrabajo) {
     Fecha_Ultima_Edicion: t.fechaUltimaEdicion,
   }));
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(hojaTrabajos), "Trabajos");
+
+  const hojaDocumentos = archivo.trabajos.flatMap((t) =>
+    (t.documentos ?? []).map((d) => ({
+      Trabajo: codigoDeTrabajo(t),
+      Nombre_Archivo: d.nombre,
+      Tipo: d.tipo,
+      Descripcion: d.descripcion,
+      Fecha: d.fecha,
+      Subcarpeta: d.subcarpeta,
+      Autor: d.autor,
+    })),
+  );
+  if (hojaDocumentos.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(hojaDocumentos), "Documentos");
 
   const hojaAreas = archivo.areas.map((a) => ({
     Codigo: a.codigo,

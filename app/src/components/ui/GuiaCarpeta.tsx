@@ -5,7 +5,7 @@ import { BotonApp } from "./Estilo";
 // Guía paso a paso para acomodar los archivos de un trabajo, pensada para quien casi no
 // usa la computadora: qué abrir, qué tocar y cómo debe quedar al final.
 
-const SUBCARPETAS = [
+export const SUBCARPETAS = [
   { nombre: "01_ORIGEN", papel: "1 · Origen", que: "lo que lo pidió: oficios, solicitudes, correos impresos" },
   { nombre: "02_DESARROLLO", papel: "2 · Desarrollo", que: "borradores y avances" },
   { nombre: "03_PRODUCTO", papel: "3 · Producto", que: "el resultado final" },

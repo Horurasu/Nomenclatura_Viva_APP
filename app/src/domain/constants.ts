@@ -140,3 +140,18 @@ export const LIMITE_CLAVE = 40;
 
 export const VERSION_ESQUEMA = "1.1.0";
 export const APP_VERSION = "0.2.0";
+
+// Tipos de documento que van dentro de un trabajo. "codigo" es lo que aparece en el nombre
+// del archivo; "carpeta" es la subcarpeta donde suele acomodarse.
+export const TIPOS_DOCUMENTO: { codigo: string; icono: string; nombre: string; carpeta: string }[] = [
+  { codigo: "ACTA", icono: "📜", nombre: "Acta", carpeta: "01_ORIGEN" },
+  { codigo: "OFICIO", icono: "📨", nombre: "Oficio", carpeta: "01_ORIGEN" },
+  { codigo: "SOLICITUD", icono: "🙋", nombre: "Solicitud", carpeta: "01_ORIGEN" },
+  { codigo: "CONSTANCIA", icono: "🏅", nombre: "Constancia", carpeta: "03_PRODUCTO" },
+  { codigo: "CONTRATO", icono: "✍️", nombre: "Contrato o convenio", carpeta: "03_PRODUCTO" },
+  { codigo: "INFORME", icono: "📊", nombre: "Informe o reporte", carpeta: "03_PRODUCTO" },
+  { codigo: "LISTA", icono: "📋", nombre: "Lista", carpeta: "02_DESARROLLO" },
+  { codigo: "BORRADOR", icono: "📝", nombre: "Borrador", carpeta: "02_DESARROLLO" },
+  { codigo: "FOTO", icono: "📷", nombre: "Foto o evidencia", carpeta: "02_DESARROLLO" },
+  { codigo: "ACUSE", icono: "📬", nombre: "Acuse de entrega", carpeta: "04_ENTREGA" },
+];

@@ -58,6 +58,21 @@ export interface FichaTrazabilidad {
   historialEstados: CambioEstado[];
 }
 
+// Un documento dentro de un trabajo (un acta, un oficio, una lista…). El trabajo es el
+// proceso o expediente; cada documento recibe un nombre derivado de su código. El nombre
+// se guarda tal como se generó, porque así quedó escrito en el archivo real.
+export interface Documento {
+  id: string;
+  tipo: string; // ACTA, OFICIO… (ver TIPOS_DOCUMENTO)
+  numero: number; // consecutivo por tipo dentro del trabajo
+  descripcion: string;
+  fecha: string; // AAAA-MM-DD del documento
+  subcarpeta: string; // 01_ORIGEN… dónde se acomoda
+  nombre: string;
+  autor: string;
+  fechaRegistro: string; // ISO 8601
+}
+
 // Un trabajo — la entidad central del sistema.
 export interface Trabajo {
   id: string;
@@ -71,6 +86,7 @@ export interface Trabajo {
 
   ficha: FichaTrazabilidad;
   ubicacion: Ubicacion;
+  documentos?: Documento[];
 
   autorCreacion: string;
   fechaCreacion: string;

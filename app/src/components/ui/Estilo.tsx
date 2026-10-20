@@ -16,6 +16,8 @@ const COLORES_BOTON = {
     "text-white bg-gradient-to-br from-amber-400 to-orange-500 border-orange-700/50 shadow-orange-600/30 hover:from-amber-300 hover:to-orange-400 focus-visible:ring-amber-300 disabled:from-gray-300 disabled:to-gray-300 disabled:border-gray-400/50 disabled:shadow-none",
   morado:
     "text-white bg-gradient-to-br from-violet-400 to-purple-600 border-purple-800/50 shadow-purple-700/30 hover:from-violet-300 hover:to-purple-500 focus-visible:ring-violet-300 disabled:from-gray-300 disabled:to-gray-300 disabled:border-gray-400/50 disabled:shadow-none",
+  rosa:
+    "text-white bg-gradient-to-br from-pink-400 to-rose-600 border-rose-800/50 shadow-rose-700/30 hover:from-pink-300 hover:to-rose-500 focus-visible:ring-rose-300 disabled:from-gray-300 disabled:to-gray-300 disabled:border-gray-400/50 disabled:shadow-none",
   rojo:
     "text-white bg-gradient-to-br from-red-400 to-red-600 border-red-800/50 shadow-red-700/30 hover:from-red-300 hover:to-red-500 focus-visible:ring-red-300 disabled:from-gray-300 disabled:to-gray-300 disabled:border-gray-400/50 disabled:shadow-none",
   blanco:
@@ -79,20 +81,57 @@ export function EncabezadoPantalla({
   );
 }
 
-// Pestañas tipo app (control segmentado): cada pestaña es un botón; la activa se ve "hundida".
+// Colores de sección: cada parte de una pantalla (pestaña y su contenido) lleva el suyo,
+// para que no se confundan aunque se parezcan.
+export type ColorSeccion = "verde" | "azul" | "ambar" | "morado" | "rosa";
+
+const COLORES_PESTANA: Record<ColorSeccion, { activa: string; inactiva: string }> = {
+  verde: {
+    activa: "text-white bg-gradient-to-br from-emerald-400 to-emerald-600 border-emerald-800/50",
+    inactiva: "text-emerald-800 bg-emerald-50 border-emerald-200 hover:bg-emerald-100",
+  },
+  azul: {
+    activa: "text-white bg-gradient-to-br from-sky-400 to-blue-600 border-blue-800/50",
+    inactiva: "text-sky-800 bg-sky-50 border-sky-200 hover:bg-sky-100",
+  },
+  ambar: {
+    activa: "text-white bg-gradient-to-br from-amber-400 to-orange-500 border-orange-700/50",
+    inactiva: "text-amber-800 bg-amber-50 border-amber-200 hover:bg-amber-100",
+  },
+  morado: {
+    activa: "text-white bg-gradient-to-br from-violet-400 to-purple-600 border-purple-800/50",
+    inactiva: "text-violet-800 bg-violet-50 border-violet-200 hover:bg-violet-100",
+  },
+  rosa: {
+    activa: "text-white bg-gradient-to-br from-pink-400 to-rose-600 border-rose-800/50",
+    inactiva: "text-rose-800 bg-rose-50 border-rose-200 hover:bg-rose-100",
+  },
+};
+
+export const COLORES_SECCION: Record<ColorSeccion, { borde: string; icono: string; numero: string }> = {
+  verde: { borde: "border-emerald-300", icono: "bg-emerald-100", numero: "bg-emerald-100 text-emerald-800" },
+  azul: { borde: "border-sky-300", icono: "bg-sky-100", numero: "bg-sky-100 text-sky-800" },
+  ambar: { borde: "border-amber-300", icono: "bg-amber-100", numero: "bg-amber-100 text-amber-800" },
+  morado: { borde: "border-violet-300", icono: "bg-violet-100", numero: "bg-violet-100 text-violet-800" },
+  rosa: { borde: "border-rose-300", icono: "bg-rose-100", numero: "bg-rose-100 text-rose-800" },
+};
+
+// Pestañas tipo app (control segmentado): cada pestaña es un botón. Con "color", cada una
+// se ve de su color desde antes de tocarla y la activa se llena de ese color.
 export function Pestanas<T extends string>({
   opciones,
   valor,
   onCambiar,
 }: {
-  opciones: { valor: T; etiqueta: ReactNode }[];
+  opciones: { valor: T; etiqueta: ReactNode; color?: ColorSeccion }[];
   valor: T;
   onCambiar: (v: T) => void;
 }) {
   return (
-    <div className="flex gap-1 p-1 rounded-2xl bg-ink/5" role="tablist">
+    <div className="flex gap-1.5 p-1 rounded-2xl bg-ink/5" role="tablist">
       {opciones.map((o) => {
         const activa = o.valor === valor;
+        const color = o.color ? COLORES_PESTANA[o.color] : null;
         return (
           <button
             key={o.valor}
@@ -100,8 +139,12 @@ export function Pestanas<T extends string>({
             role="tab"
             aria-selected={activa}
             onClick={() => onCambiar(o.valor)}
-            className={`flex-1 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-300 ${
-              activa ? "bg-white text-ink shadow-md border-b-[3px] border-line" : "text-ink-soft hover:bg-white/60 hover:text-ink"
+            className={`flex-1 px-2 sm:px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-300 ${
+              color
+                ? `border border-b-[3px] ${activa ? `${color.activa} shadow-md` : `${color.inactiva} hover:-translate-y-0.5`}`
+                : activa
+                  ? "bg-white text-ink shadow-md border-b-[3px] border-line"
+                  : "text-ink-soft hover:bg-white/60 hover:text-ink"
             }`}
           >
             {o.etiqueta}
@@ -118,18 +161,21 @@ export function Seccion({
   titulo,
   subtitulo,
   plegable = false,
+  color,
   children,
 }: {
   icono: string;
   titulo: ReactNode;
   subtitulo?: ReactNode;
   plegable?: boolean;
+  color?: ColorSeccion;
   children: ReactNode;
 }) {
   const [abierta, setAbierta] = useState(!plegable);
+  const tono = color ? COLORES_SECCION[color] : null;
   const cabecera = (
     <>
-      <span aria-hidden="true" className="shrink-0 w-10 h-10 rounded-xl bg-app flex items-center justify-center text-xl">
+      <span aria-hidden="true" className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-xl ${tono ? tono.icono : "bg-app"}`}>
         {icono}
       </span>
       <span className="flex-1 min-w-0 text-left">
@@ -141,7 +187,7 @@ export function Seccion({
 
   if (!plegable) {
     return (
-      <div className="rounded-2xl bg-white border border-line p-4 space-y-4">
+      <div className={`rounded-2xl bg-white p-4 space-y-4 ${tono ? `border-2 border-t-[6px] ${tono.borde}` : "border border-line"}`}>
         <div className="flex items-center gap-3">{cabecera}</div>
         {children}
       </div>
@@ -254,6 +300,7 @@ export function Opcion({
   texto,
   punteada = false,
   onClick,
+  onQuitar,
 }: {
   seleccionada?: boolean;
   icono?: ReactNode;
@@ -261,8 +308,10 @@ export function Opcion({
   texto?: ReactNode;
   punteada?: boolean;
   onClick: () => void;
+  // Si viene, aparece un botoncito a un lado para quitar la opción de la lista.
+  onQuitar?: () => void;
 }) {
-  return (
+  const tarjeta = (
     <button
       type="button"
       onClick={onClick}
@@ -297,6 +346,24 @@ export function Opcion({
         </span>
       )}
     </button>
+  );
+  if (!onQuitar) return tarjeta;
+  return (
+    <div className="flex items-stretch gap-2">
+      <div className="flex-1 min-w-0">{tarjeta}</div>
+      <button
+        type="button"
+        onClick={onQuitar}
+        title="Quitar de mi lista"
+        aria-label={typeof titulo === "string" ? `Quitar ${titulo} de mi lista` : "Quitar de mi lista"}
+        className={`shrink-0 w-14 flex flex-col items-center justify-center gap-0.5 rounded-2xl text-[11px] font-semibold text-red-700 bg-white border-2 border-b-4 border-red-200 shadow-sm hover:bg-red-50 hover:border-red-300 active:border-b-2 focus-visible:ring-red-300 ${PRESIONABLE}`}
+      >
+        <span aria-hidden="true" className="text-base leading-none">
+          ⬇️
+        </span>
+        Quitar
+      </button>
+    </div>
   );
 }
 

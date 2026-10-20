@@ -2,7 +2,7 @@ import { useState, type ChangeEvent, type ReactNode } from "react";
 import { useAppStore } from "../../store/useAppStore";
 import { esArchivoDeConfiguracion, exportarExcel, exportarJSON, generarArchivoTrabajo, leerArchivoJSON, nombreArchivo } from "../../storage/exportImport";
 import type { ArchivoTrabajo } from "../../domain/types";
-import { Aviso, Ayuda, BotonApp, Campo, EncabezadoPantalla, Panel, Pestanas, Seccion, clasesBoton } from "../ui/Estilo";
+import { Aviso, Ayuda, BotonApp, COLORES_SECCION, Campo, EncabezadoPantalla, Panel, Pestanas, Seccion, clasesBoton, type ColorSeccion } from "../ui/Estilo";
 import { ComoPasarArchivo } from "../ui/ComoPasarArchivo";
 
 type Pestana = "GUARDAR" | "CARGAR" | "CAMBIAR";
@@ -101,9 +101,9 @@ export function ExportarImportar() {
           <strong>un archivo que guardas tú</strong>, como una fotocopia de todo.
         </p>
         <div className="grid grid-cols-3 gap-2 text-center">
-          <Etapa icono="⬇️" texto="1. Lo descargas" />
-          <Etapa icono="🔒" texto="2. Lo guardas en un lugar seguro" />
-          <Etapa icono="⬆️" texto="3. Lo cargas cuando lo necesites" />
+          <Etapa icono="⬇️" texto="1. Lo descargas" clase="bg-emerald-50" />
+          <Etapa icono="🔒" texto="2. Tú lo guardas en un lugar seguro" clase="bg-emerald-50" />
+          <Etapa icono="⬆️" texto="3. Lo cargas cuando lo necesites" clase="bg-sky-50" />
         </div>
       </Panel>
 
@@ -111,17 +111,17 @@ export function ExportarImportar() {
         valor={pestana}
         onCambiar={setPestana}
         opciones={[
-          { valor: "GUARDAR", etiqueta: "⬇️ Guardar" },
-          { valor: "CARGAR", etiqueta: "⬆️ Cargar" },
-          { valor: "CAMBIAR", etiqueta: "🔁 Otra compu" },
+          { valor: "GUARDAR", etiqueta: "⬇️ Guardar", color: "verde" },
+          { valor: "CARGAR", etiqueta: "⬆️ Cargar", color: "azul" },
+          { valor: "CAMBIAR", etiqueta: "🔁 Otra compu", color: "rosa" },
         ]}
       />
 
       {/* ---------------- Guardar ---------------- */}
       {pestana === "GUARDAR" && (
         <>
-          <Seccion icono="1️⃣" titulo="Descarga tu respaldo" subtitulo="Un archivo con todos tus trabajos, áreas y tipos.">
-            <BotonApp color="ambar" tamano="lg" className="w-full" onClick={descargar}>
+          <Seccion color="verde" icono="1️⃣" titulo="Descarga tu respaldo" subtitulo="Un archivo con todos tus trabajos, áreas y tipos.">
+            <BotonApp color="verde" tamano="lg" className="w-full" onClick={descargar}>
               ⬇️ Descargar mi respaldo
             </BotonApp>
             {descargado ? (
@@ -130,7 +130,10 @@ export function ExportarImportar() {
                 <span className="block font-mono text-xs mt-1 break-all">{descargado}</span>
               </Aviso>
             ) : (
-              <p className="text-xs text-ink-soft">Se guarda en tu carpeta <strong>Descargas</strong>. El nombre lleva la fecha de hoy.</p>
+              <p className="text-xs text-ink-soft">
+                Se guarda en tu carpeta <strong>Descargas</strong> como <strong className="font-mono break-all">{nombreEsperado}</strong>.
+                Lleva la fecha de hoy; si respaldas otra vez el mismo día, sale como <strong>v2</strong>, <strong>v3</strong>…
+              </p>
             )}
             <Ayuda titulo="Agregar datos de tu institución (opcional)" icono="🏛️">
               <Campo etiqueta="Institución" value={institucion} onChange={(e) => setInstitucion(e.target.value)} placeholder="Ej. Universidad Marista de Querétaro" />
@@ -138,15 +141,20 @@ export function ExportarImportar() {
             </Ayuda>
           </Seccion>
 
-          <Seccion icono="2️⃣" titulo="Guárdalo en un lugar seguro" subtitulo="Si solo queda en esta computadora y se descompone, se pierde. Elige cómo:">
-            <ComoPasarArchivo nombreArchivo={nombreEsperado} />
+          <Seccion
+            color="verde"
+            icono="2️⃣"
+            titulo="Ahora guárdalo tú en un lugar seguro"
+            subtitulo="Si solo queda en esta computadora y se descompone, se pierde. Estas son ideas de dónde ponerlo:"
+          >
+            <ComoPasarArchivo nombreArchivo={nombreEsperado} color="verde" />
           </Seccion>
 
           <p className="text-sm text-ink-soft flex gap-2 px-1">
             <span aria-hidden="true">📅</span>
             <span>
-              Hazlo <strong>cada viernes</strong> o cuando registres varios trabajos. Cada respaldo lleva la fecha en su nombre:
-              el más nuevo es el que vale.
+              Hazlo <strong>cada viernes</strong> o cuando registres varios trabajos. Cada respaldo lleva la fecha y la versión
+              en su nombre: el de <strong>fecha más nueva</strong> y <strong>versión más alta</strong> es el que vale.
             </span>
           </p>
 
@@ -160,17 +168,18 @@ export function ExportarImportar() {
 
       {/* ---------------- Cargar ---------------- */}
       {pestana === "CARGAR" && (
-        <Seccion icono="⬆️" titulo="Cargar un respaldo" subtitulo="Úsalo si cambiaste de computadora o de navegador, o si se borró tu información.">
+        <Seccion color="azul" icono="⬆️" titulo="Cargar un respaldo" subtitulo="Úsalo si cambiaste de computadora o de navegador, o si se borró tu información.">
           <ol className="space-y-3">
-            <PasoNumerado numero={1} titulo="Ten el archivo en esta computadora">
+            <PasoNumerado color="azul" numero={1} titulo="Ten el archivo en esta computadora">
               Si lo guardaste en una USB, tu correo, Drive o WhatsApp, primero descárgalo o cópialo. Normalmente queda en{" "}
               <strong>Descargas</strong>.
             </PasoNumerado>
-            <PasoNumerado numero={2} titulo="Toca “Elegir mi respaldo” y búscalo">
-              Su nombre empieza con <strong className="font-mono">respaldo-nomenclatura-viva_</strong> y tiene la fecha. Si hay
-              varios, elige el de <strong>fecha más reciente</strong>.
+            <PasoNumerado color="azul" numero={2} titulo="Toca “Elegir mi respaldo” y búscalo">
+              Su nombre empieza con <strong className="font-mono">respaldo-nomenclatura-viva_</strong> y tiene la fecha y la
+              versión, por ejemplo <strong className="font-mono">…_2026-10-20_v2.json</strong>. Si hay varios, elige el de{" "}
+              <strong>fecha más reciente</strong> y, si hay dos del mismo día, el de <strong>versión más alta</strong>.
             </PasoNumerado>
-            <PasoNumerado numero={3} titulo="Revisa lo que trae y confirma">
+            <PasoNumerado color="azul" numero={3} titulo="Revisa lo que trae y confirma">
               Te mostramos cuántos trabajos tiene antes de cargarlo.
             </PasoNumerado>
           </ol>
@@ -183,7 +192,7 @@ export function ExportarImportar() {
           )}
 
           {!pendiente ? (
-            <label className={`${clasesBoton("ambar", "lg")} w-full cursor-pointer`}>
+            <label className={`${clasesBoton("azul", "lg")} w-full cursor-pointer`}>
               📂 Elegir mi respaldo
               <input type="file" accept=".json,application/json" onChange={manejarSeleccionArchivo} className="sr-only" />
             </label>
@@ -219,7 +228,7 @@ export function ExportarImportar() {
                 </Aviso>
               )}
               <div className="flex gap-2">
-                <BotonApp color="ambar" className="flex-1" onClick={confirmarImportacion}>
+                <BotonApp color="azul" className="flex-1" onClick={confirmarImportacion}>
                   Sí, cargar este respaldo
                 </BotonApp>
                 <BotonApp color="blanco" onClick={() => setPendiente(null)}>
@@ -246,33 +255,33 @@ export function ExportarImportar() {
       {/* ---------------- Cambiar de computadora ---------------- */}
       {pestana === "CAMBIAR" && (
         <>
-          <Seccion icono="💻" titulo="En la computadora de antes" subtitulo="Donde ya tienes tus trabajos.">
+          <Seccion color="rosa" icono="💻" titulo="En la computadora de antes" subtitulo="Donde ya tienes tus trabajos.">
             <ol className="space-y-3">
-              <PasoNumerado numero={1} titulo="Descarga tu respaldo">
+              <PasoNumerado color="rosa" numero={1} titulo="Descarga tu respaldo">
                 En la pestaña <strong>⬇️ Guardar</strong>, toca <strong>“Descargar mi respaldo”</strong>.
                 <span className="block mt-2">
-                  <BotonApp color="ambar" tamano="sm" onClick={descargar}>
+                  <BotonApp color="rosa" tamano="sm" onClick={descargar}>
                     ⬇️ Descargarlo ahora
                   </BotonApp>
                 </span>
               </PasoNumerado>
-              <PasoNumerado numero={2} titulo="Pásalo a la otra computadora">
+              <PasoNumerado color="rosa" numero={2} titulo="Pásalo tú a la otra computadora">
                 Elige cómo:
               </PasoNumerado>
             </ol>
-            <ComoPasarArchivo nombreArchivo={nombreEsperado} />
+            <ComoPasarArchivo nombreArchivo={nombreEsperado} color="rosa" />
           </Seccion>
 
-          <Seccion icono="🆕" titulo="En la computadora nueva" subtitulo="O en el otro navegador.">
+          <Seccion color="rosa" icono="🆕" titulo="En la computadora nueva" subtitulo="O en el otro navegador.">
             <ol className="space-y-3">
-              <PasoNumerado numero={1} titulo="Abre esta misma app">
+              <PasoNumerado color="rosa" numero={1} titulo="Abre esta misma app">
                 Usa la misma dirección de internet que usas aquí.
               </PasoNumerado>
-              <PasoNumerado numero={2} titulo="Carga el respaldo">
+              <PasoNumerado color="rosa" numero={2} titulo="Carga el respaldo">
                 Si es la primera vez, en la bienvenida toca <strong>“Ya tengo una copia de respaldo”</strong>. Si no, entra a{" "}
                 <strong>Respaldo → ⬆️ Cargar</strong>.
               </PasoNumerado>
-              <PasoNumerado numero={3} titulo="¡Listo!">
+              <PasoNumerado color="rosa" numero={3} titulo="¡Listo!">
                 Aparecen tus trabajos, tus áreas y tus tipos, igual que aquí.
               </PasoNumerado>
             </ol>
@@ -302,9 +311,9 @@ export function ExportarImportar() {
   );
 }
 
-function Etapa({ icono, texto }: { icono: string; texto: string }) {
+function Etapa({ icono, texto, clase }: { icono: string; texto: string; clase: string }) {
   return (
-    <div className="rounded-xl bg-amber-50 px-2 py-2.5">
+    <div className={`rounded-xl px-2 py-2.5 ${clase}`}>
       <p className="text-2xl leading-none" aria-hidden="true">
         {icono}
       </p>
@@ -313,10 +322,20 @@ function Etapa({ icono, texto }: { icono: string; texto: string }) {
   );
 }
 
-export function PasoNumerado({ numero, titulo, children }: { numero: number; titulo: string; children: ReactNode }) {
+export function PasoNumerado({
+  numero,
+  titulo,
+  color = "ambar",
+  children,
+}: {
+  numero: number;
+  titulo: string;
+  color?: ColorSeccion;
+  children: ReactNode;
+}) {
   return (
     <li className="flex gap-3">
-      <span aria-hidden="true" className="shrink-0 w-7 h-7 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center text-sm font-bold">
+      <span aria-hidden="true" className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold ${COLORES_SECCION[color].numero}`}>
         {numero}
       </span>
       <div className="flex-1 min-w-0 text-sm text-ink-soft leading-relaxed">
